@@ -1,0 +1,3296 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>RTOS Spash Schematic Editor</title>
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Copyright 1998-2019 by Northwoods Software Corporation. -->
+
+  <script src="../libraries/Gojs/release/go.js" type="text/javascript"/></script>
+  <script src="../libraries/Gojs/extensions/Figures.js" type="text/javascript"></script>
+  <script src="../libraries/Gojs/extensions/Templates.js" type="text/javascript">	</script>
+  <script src="../libraries/Gojs/extensions/ResizeMultipleTool.js" type="text/javascript"></script>
+  <script src="../libraries/Gojs/extensions/PortShiftingTool.js" type="text/javascript"></script>
+  <script src="../libraries/Gojs/extensions/DrawCommandHandler.js"></script>
+  <script src="../libraries/Gojs/extensions/GuidedDraggingTool.js"></script>
+  <script src="../libraries/Gojs/extensions/DataInspector.js"></script>
+  <script src="../libraries/Gojs/extensions/RealtimeDragSelectingTool.js"></script>
+
+  <script src="../libraries/jquery-3.4.1.js" type="text/javascript"></script>
+  <script src="../libraries/ResizeSensor.js" type="text/javascript"></script>
+  <script src="../libraries/FileSaver.js" type="text/javascript"></script>
+
+  <!-- stikcy.js and rAF.js are used for implement floating palette (deprecated)-->
+  <script src="../libraries/sticky/jquery.sticky.js" type="text/javascript"></script>
+  <script src="../libraries/rAF.js" type="text/javascript"></script>
+
+
+  <link rel="stylesheet" href="../css/EditorStyle.css" type="text/css">
+  <link rel="stylesheet" href="../libraries/Gojs/assets/css/jquery-ui.min.css" />
+  <script src="../libraries/Gojs/assets/js/jquery.min.js"></script>
+  <script src="../libraries/Gojs/assets/js/jquery-ui.min.js"></script>
+  
+  <script id="code">
+    var red = "orangered";  // 0 or false
+    var green = "forestgreen";  // 1 or true
+
+    var init_instance;
+
+    function init() {
+
+      var externalDroppedObjectName = "NONE";
+      var internalSelectedObjectName = "NONE";
+
+      var $ = go.GraphObject.make;  // for conciseness in defining templates
+      
+      myDiagram =
+        $(go.Diagram, "SplashCanvas",  // create a new Diagram in the HTML DIV element "SplashCanvas"
+          {
+             initialDocumentSpot: go.Spot.TopCenter,
+             initialViewportSpot: go.Spot.TopCenter,
+
+
+            
+            "undoManager.isEnabled": true,
+            commandHandler: new DrawCommandHandler(),  // defined in DrawCommandHandler.js
+            "commandHandler.archetypeGroupData": { isGroup: true, category: "OfNodes" },
+            
+            //resizingTool: new ResizeMultipleTool(),  // defined in ResizeMultipleTool.js
+            "resizingTool.isGridSnapEnabled" : true,
+            
+            
+            draggingTool: new GuidedDraggingTool(),  // defined in GuidedDraggingTool.js
+            "draggingTool.isGridSnapEnabled": true,  // dragged nodes will snap to a grid of 10x10 cells
+            "draggingTool.horizontalGuidelineColor": "blue",
+            "draggingTool.verticalGuidelineColor": "blue",
+            "draggingTool.centerGuidelineColor": "green",
+            "draggingTool.guidelineWidth": 1,
+
+            
+            
+            // notice whenever the selection may have changed
+            "ChangedSelection": enableAll,  // defined below, to enable/disable commands
+
+            // notice when the Paste command may need to be reenabled
+            "ClipboardChanged": enableAll,
+
+
+            dragSelectingTool:
+            $(RealtimeDragSelectingTool,
+              { isPartialInclusion: true, delay: 175 },
+              {
+                box: $(go.Part,  // replace the magenta box with a red one
+                  { layerName: "Tool", selectable: false },
+                  $(go.Shape,
+                    {
+                      name: "SHAPE", fill: "rgba(255,0,0,0.1)",
+                      stroke: "red", strokeWidth: 2
+                    }))
+              },
+            ),
+
+            "LayoutCompleted": function(e) {
+              e.diagram.nodes.each(n => n.updateTargetBindings("actualBounds"))             
+            },
+
+           
+
+            
+            mouseDrop: function(e) { 
+              finishDrop(e, null);
+              
+
+            },
+            
+
+            ExternalObjectsDropped: function(e) {
+            
+              console.log("ExternalObjectsDropped()");
+              e.subject.each( function(part) 
+              {
+                externalDroppedObjectName = part.name;
+                internalSelectedObjectName = "NONE";
+                
+                setDefaultProperty(part);
+
+                addDefaultPort(part);
+
+                inspector.inspectObject();
+                inspector2.inspectObject();
+
+                addLog("Add a new Component: "+part.name);
+                //console.log("BuildUnit is null string? "+ (part.data.BuildUnit === null) ? "true" : "false");
+              });
+
+
+            },
+            
+            ObjectSingleClicked: function(e) {
+              console.log("ObjectSingleClicked()");
+              var selected = e.subject.part;
+              externalDroppedObjectName = "NONE";
+              internalSelectedObjectName = selected.name;
+
+              console.log(selected.name);
+              //setDefaultProperty(selected);
+              console.log(selected.points);
+
+              updateCurrentObject(selected);
+              //relocatePort(selected);
+
+              inspector.inspectObject();
+              inspector2.inspectObject();
+            },
+
+            ObjectContextClicked: function(e) {
+              console.log("ObjectContextClicked()");
+              var selected = e.subject.part;
+              externalDroppedObjectName = "NONE";
+              internalSelectedObjectName = selected.name;
+
+              //setDefaultProperty(selected);
+              console.log(selected.points);
+
+              updateCurrentObject(selected);
+              //relocatePort(selected);
+
+              inspector.inspectObject();
+              inspector2.inspectObject();   
+            },
+
+            ChangingSelection: function(e) {
+
+              //inheritBuildUnit(e);
+              console.log("ChangingSelection()");
+              e.diagram.selection.each(function(part){
+                updateCurrentObject(part);              
+              });
+            },
+
+            PartResized: function(e) {
+              console.log("PartResized()");
+
+            },
+
+            SelectionCopied: function(e) {
+              console.log("SelectionCopied()");
+              //e.subject.part.key = createKeyUUID();
+
+              e.subject.each( function(part) 
+              {
+                part.key = createKeyUUID();
+                addLog("Copy a new Component: "+part.name);
+              });
+
+              inspector.inspectObject();
+              inspector2.inspectObject();
+
+            },
+            
+            ClipboardPasted: function(e) {
+              console.log("ClipboardPasted()");
+              //e.subject.part.key = createKeyUUID();
+
+              e.subject.each( function(part) 
+              {
+                part.key = createKeyUUID();
+                addLog("Copy a new Component: "+part.name);
+              });
+
+              inspector.inspectObject();
+              inspector2.inspectObject();
+
+            },
+
+            LinkDrawn: function(e) {
+              console.log("LinkDrawn()");
+ 
+              deactivateAllStreamPort();
+              decativateAllEventPort();
+
+              //var selected = e.subject.part;
+              //selected.data.segArray = selected.flattenedLengths.toString();
+
+              inspector.inspectObject();
+              inspector2.inspectObject();
+            },
+
+            // TextEdited: function(e) {
+            //   console.log("TextEdited()");
+
+            //   var selected = e.subject.part;
+            //   relocatePort(selected);
+
+            //   inspector.inspectObject();
+            //   inspector2.inspectObject();
+            // },
+
+
+            // ChangedSelection: function(e) {
+            //   console.log("ChangedSelection()");
+            //   var selected = e.subject.part;
+            //   relocPort(selected);
+            //   console.log(selected);
+
+            //   inspector.inspectObject();
+            //   inspector2.inspectObject();
+            // },
+
+          }); 
+       
+
+      // var selectingTool = myDiagram.toolManager.dragSelectingTool;
+      // selectingTool.doActivate = function() {
+      //   go.DragSelectingTool.prototype.doActivate.call(this);    
+      // }  
+
+      // relocatePart() is relocate stream input/output port of source/sink component when there textBlock is added.
+      function relocatePort(part) {
+        console.log("relocatePort()");
+        //console.log(part.name);
+
+        var it_memberParts;
+        var memeber_port;
+
+        if(part.name == "SOURCE") {
+          it_memberParts = part.memberParts;
+          memeber_port = it_memberParts.first()
+
+          memeber_port.location = new go.Point(part.location.x+30, part.location.y-part.actualBounds.height/2+10);
+          console.log(memeber_port.location);
+
+        } else if(part.name == "SINK") {
+          it_memberParts = part.memberParts;
+          memeber_port = it_memberParts.first()
+
+          memeber_port.location = new go.Point(part.location.x-50, part.location.y-part.actualBounds.height/2+10);
+
+        } else {}
+      }
+
+
+      // Build unit code
+      function inheritBuildUnit(part) {
+        console.log("inheritBuildUnit()");
+        var it_memeberParts;
+        var memeber_port;
+
+        // 1. factory
+        if(part.name === "FACTORY") {          
+          it_memeberParts = part.memberParts;
+          // 1-1. factory, delegation port and atmoic component
+          if(!notAssigned_buildUnit(part.data.BuildUnit)) {
+            it_memeberParts.each(function(node){
+              if(node.name === "FACTORY") {
+                node.data.BuildUnit = part.data.BuildUnit;
+                inheritBuildUnit(node);
+              }
+              if(node.name === "STREAM_DELEGATION_PORT") {
+                  node.data.BuildUnit = part.data.BuildUnit;
+              }
+              if(node.name === "SOURCE"
+                || node.name === "SINK"
+                || node.name === "PROCESSING"
+                || node.name === "FUSION") {
+                node.data.BuildUnit = part.data.BuildUnit;
+                inheritBuildUnit(node);
+              }
+            });
+          } else {
+            it_memeberParts.each(function(node){
+              if(node.name === "STREAM_DELEGATION_PORT") {
+                  node.data.BuildUnit = undefined;
+              }
+            });
+          }
+        }
+
+        // 2. atomic component
+        if(part.name === "SOURCE"
+          || part.name === "SINK"
+          || part.name === "PROCESSING"
+          || part.name === "FUSION") {
+          it_memeberParts = part.memberParts;
+          // port
+          it_memeberParts.each(function(node){
+            if(node.name === "STREAM_INPUT_PORT"
+            || node.name === "STREAM_OUTPUT_PORT") {
+              node.data.BuildUnit = part.data.BuildUnit;
+            }
+          });
+        }
+
+        // 3. channel
+        var it_links;
+
+        if(part.name === "FACTORY") {
+          it_memeberParts = part.memberParts;
+          it_memeberParts.each(function(node){
+            if(node.name === "STREAM_DELEGATION_PORT") {
+              it_links = node.findLinksConnected();
+              it_links.each(function(link){
+                if(link.fromNode.data.BuildUnit == link.toNode.data.BuildUnit) {
+                  link.data.BuildUnit = link.fromNode.data.BuildUnit;
+                }
+              });
+            }
+          });
+        } else if(part.name === "SOURCE"
+          || part.name === "SINK"
+          || part.name === "PROCESSING"
+          || part.name === "FUSION") {
+          it_memeberParts = part.memberParts;
+          it_memeberParts.each(function(node){
+            if(node.name === "STREAM_INPUT_PORT"
+              || node.name === "STREAM_OUTPUT_PORT") {
+              it_links = node.findLinksConnected();
+              it_links.each(function(link){
+                if(link.fromNode.data.BuildUnit == link.toNode.data.BuildUnit) {
+                  link.data.BuildUnit = link.fromNode.data.BuildUnit;
+                }
+              });
+            }
+          });
+        }        
+      }
+   
+
+      function updateCurrentObject(part) {
+        relocatePort(part);
+        inheritBuildUnit(part);
+      }    
+
+      function addDefaultPort(part) {
+        var defaultPort;
+        if(part.name === "SOURCE") {
+          defaultPort = {
+            category: "streamPort", 
+            group: part.data.key, 
+            PORT_TYPE: "STREAM_OUTPUT_PORT",
+            loc: go.Point.stringify(new go.Point(part.location.x+30, part.location.y-part.actualBounds.height/2+10)),
+          };
+          myDiagram.model.addNodeData(defaultPort);  
+        } else if(part.name === "SINK") {
+          defaultPort = {
+            category: "streamPort", 
+            group: part.data.key, 
+            PORT_TYPE: "STREAM_INPUT_PORT",
+            loc: go.Point.stringify(new go.Point(part.location.x-50, part.location.y-part.actualBounds.height/2+10)),
+          };
+          myDiagram.model.addNodeData(defaultPort); 
+        } else if(part.name === "FUSION") {
+          defaultPort = {
+            category: "streamPort", 
+            group: part.data.key, 
+            PORT_TYPE: "STREAM_OUTPUT_PORT",
+            loc: go.Point.stringify(new go.Point(part.location.x+10, part.location.y-10)),
+          };
+          myDiagram.model.addNodeData(defaultPort);  
+        }
+      }
+
+
+  		function setDefaultProperty(part) {
+  			console.log("setDefaultProperty()");
+        part.data.BuildUnit = "";
+				if(part.name === "PROCESSING") {
+					part.data.WIDTH = 100; 
+					part.data.HEIGHT = 100; 
+				} else if (part.name === "FUSION") {
+					part.data.HEIGHT = 100;
+					part.data.WIDTH = 40;
+				} else if (part.name === "FACTORY") {
+					part.data.WIDTH = 450;
+					part.data.HEIGHT = 250; 
+				}
+				part.UpdateTargetBindings;
+
+  		}
+
+
+      myDiagram.model.makeUniqueKeyFunction = setKeyUUID;
+
+       
+      myDiagram.grid =
+        $(go.Panel, "Grid",
+          {
+            name: "GRID",
+            visible: true,
+            gridCellSize: new go.Size(10, 10),
+            gridOrigin: new go.Point(0, 0)
+          },
+          $(go.Shape, "LineH", { stroke: "lightgray", strokeWidth: 0.5, interval: 1 }),
+          $(go.Shape, "LineH", { stroke: "gray", strokeWidth: 0.5, interval: 5 }),
+          $(go.Shape, "LineH", { stroke: "gray", strokeWidth: 1.0, interval: 10 }),
+          $(go.Shape, "LineV", { stroke: "lightgray", strokeWidth: 0.5, interval: 1 }),
+          $(go.Shape, "LineV", { stroke: "gray", strokeWidth: 0.5, interval: 5 }),
+          $(go.Shape, "LineV", { stroke: "gray", strokeWidth: 1.0, interval: 10 })
+        );
+
+
+        function finishDrop(e, grp) {      
+          var ok = (grp !== null
+            ? grp.addMembers(grp.diagram.selection, true)
+            : e.diagram.commandHandler.addTopLevelParts(e.diagram.selection, true));
+          if (!ok) e.diagram.currentTool.doCancel();        
+        }
+
+      function highlightGroup(e, grp, show) { 
+        if (!grp) return;
+        e.handled = true;
+        if (show) {
+          // cannot depend on the grp.diagram.selection in the case of external drag-and-drops;
+          // instead depend on the DraggingTool.draggedParts or .copiedParts
+          var tool = grp.diagram.toolManager.draggingTool;
+          var map = tool.draggedParts || tool.copiedParts;  // this is a Map
+          // now we can check to see if the Group will accept membership of the dragged Parts
+          if (grp.canAddMembers(map.toKeySet())) {
+            //grp.isHighlighted = true;
+            grp.findObject("SHAPE").fill = "#FBB5B5";
+            return;
+          }
+        }
+        //grp.isHighlighted = false;
+        grp.findObject("SHAPE").fill = "white";
+        grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = null;
+        grp.findObject("AREA_STREAM_INPUT_PORT").fill = null;
+      };
+
+
+
+
+      
+
+      
+      
+      // install the PortShiftingTool as a "mouse move" tool
+      myDiagram.toolManager.mouseMoveTools.insertAt(0, new PortShiftingTool());
+      // when the document is modified, add a "*" to the title and enable the "Save" button
+      myDiagram.addDiagramListener("Modified", function(e) {
+        var currentFile = document.getElementById("currentFile");
+        var idx = currentFile.textContent.indexOf("*");
+        if (myDiagram.isModified) {
+          if (idx < 0) currentFile.textContent = currentFile.textContent + "*";
+        } else {
+          if (idx >= 0) currentFile.textContent = currentFile.textContent.substr(0, idx);
+        }
+      });
+
+      var palette = new go.Palette("palette");  // create a new Palette in the HTML DIV element "palette"
+      // creates relinkable Links that will avoid crossing Nodes when possible and will jump over other Links in their paths
+      myDiagram.linkTemplate =
+        $(go.Link,
+          {
+            routing: go.Link.AvoidsNodes,
+            curve: go.Link.JumpOver,
+            corner: 0,
+            relinkableFrom: true, relinkableTo: true,
+            reshapable: true,
+            selectionAdorned: false, // Links are not adorned when selected so that their color remains visible.
+            shadowOffset: new go.Point(0, 0), shadowBlur: 5, shadowColor: "blue",
+          },
+          new go.Binding("isShadowed", "isSelected").ofObject(),
+          new go.Binding("points", "segArray", 
+            function(data,node) { 
+              var arr = data.split(",");
+              var list = new go.List();
+
+              list.add(go.Point.parse(arr[0]));
+              list.add(go.Point.parse(arr[1]));
+              list.add(go.Point.parse(arr[2]));
+              list.add(go.Point.parse(arr[3]));
+              list.add(go.Point.parse(arr[4]));
+              list.add(go.Point.parse(arr[5]));
+
+              return list;
+            } 
+          ).makeTwoWay(
+            function (points) {
+              var arr = points.toArray();
+
+              var p0, p1, p2, p3, p4, p5;
+              p0 = go.Point.stringify(arr[0]);
+              p1 = go.Point.stringify(arr[1]);
+              p2 = go.Point.stringify(arr[2]);
+              p3 = go.Point.stringify(arr[3]);
+              p4 = go.Point.stringify(arr[4]);
+              p5 = go.Point.stringify(arr[5]);
+
+              var str = p0 + "," + p1 + "," + p2 + "," + p3 + "," + p4 + "," + p5;
+              return str;
+            }
+          ),
+          //new go.Binding("isShadowed", "segArray", go.Binding.toString()).makeTwoWay(),
+          $(go.Shape,
+            { name: "SHAPE", strokeWidth: 1, stroke: "black" }));
+      // node template helpers
+      var sharedToolTip =
+        $("ToolTip",
+          { "Border.figure": "RoundedRectangle" },
+          $(go.TextBlock, { margin: 2 },
+            new go.Binding("text", "", function(d) { return d.category; })));
+
+
+      // common component properties definition
+      {
+        function splash_componentStyle() {
+          return [new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
+          new go.Binding("isShadowed", "isSelected").ofObject(),
+          {
+            selectionAdorned: false,
+            shadowOffset: new go.Point(0, 0),
+            shadowBlur: 15,
+            shadowColor: "blue",
+            resizable: true,
+            resizeObjectName: "SHAPE",
+            toolTip: sharedToolTip,
+            visible: true,
+          }];
+        }
+        
+        // calculate port location as a node of group to keep relative location 
+        // even if the group is resized.
+        function calcPortLocation(data, node) {
+          if(node.isSelected) return go.Point.parse(data);
+
+          var node_loc = go.Point.parse(data); // go.Point form
+          var node_x = node_loc.x;
+          var node_y = node_loc.y;
+          var grp = node.containingGroup; 
+
+          var grp_loc = grp.location;
+          var grp_x = grp_loc.x;
+          var grp_y = grp_loc.y;
+          var grp_width = grp.actualBounds.width;
+          var grp_height = grp.actualBounds.height;
+          //var grp_height = grp.actualBounds.height;
+          //var node_y_rel = (grp_y-node_y)/(grp_height/2);
+
+          if(node.name === "STREAM_OUTPUT_PORT"
+            || node.name === "STREAM_INPUT_PORT"
+            || node.name === "STREAM_DELEGATION_PORT") {
+            if(grp) {
+              if(grp_x - node_x > 0) {
+                node_x = grp_x - grp_width/2 - 10;
+              } else  {
+                node_x = grp_x + grp_width/2 - 10;
+              } 
+            } else {
+              // on the background
+            }
+          } else if(node.name === "EVENT_INPUT_PORT"
+                  || node.name === "EVENT_OUTPUT_PORT"
+                  || node.name === "EVENT_DELEGATION_INPUT_PORT"
+                  || node.name === "EVENT_DELEGATION_OUTPUT_PORT") {
+            if(grp) {
+                node_y = grp_y - grp_height/2 - 10;
+            }
+          } else if (node.name === "SOURCE" || node.name === "SINK") {
+            if(grp) {
+              node_y = grp_y - grp_height/2 + 10;
+            }
+          } else {
+            // on the background
+          } 
+          
+
+          node_loc.x = node_x;
+          node_loc.y = node_y;
+          //console.log(node_loc.x+" "+node_loc.y);
+          return node_loc; // return as go.Point form
+        }
+
+        function splash_portStyle() {
+          return [
+            splash_componentStyle(),
+            new go.Binding("location", "loc", calcPortLocation).makeTwoWay(go.Point.stringify),
+            {
+              resizable: false,
+              selectionChanged: function(p) {
+              p.zOrder = (p.isSelected ? 11 : 10);
+              },
+            }            
+          ];
+        }        
+        
+
+
+        function splash_atomicComponentStyle() {
+          return [
+            splash_componentStyle(),
+            {
+              ungroupable: true,
+              locationSpot: go.Spot.Center,
+              zOrder: 5,
+              
+              computesBoundsAfterDrag: true,
+              // when the selection is dropped into a Group, add the selected Parts into that Group;
+              // if it fails, cancel the tool, rolling back any changes
+              mouseDrop: finishDrop_component,
+              handlesDragDropForMembers: true,  // don't need to define handlers on member Nodes and Links.
+              selectionChanged: function(p) {
+                p.zOrder = (p.isSelected ? 6 : 5);
+              },
+            }
+          ];
+        }
+        
+        function splash_factoryStyle() {
+          return [
+            splash_componentStyle(),
+            {
+              ungroupable: true,
+              locationSpot: go.Spot.Center,
+
+              zOrder: 1,
+              layerName: "Background",
+              
+              computesBoundsAfterDrag: true,
+              // when the selection is dropped into a Group, add the selected Parts into that Group;
+              // if it fails, cancel the tool, rolling back any changes
+              mouseDrop: finishDrop_component,
+              handlesDragDropForMembers: true,  // don't need to define handlers on member Nodes and Links.
+              // selectionChanged: function(p) {
+              //   p.zOrder = (p.isSelected ? 2 : 1);
+              // },
+            }
+          ];
+        }
+        
+
+          
+         function finishDrop_component(e, grp) {
+          var ok = (grp !== null
+            ? grp.addMembers(grp.diagram.selection, true)
+            : e.diagram.commandHandler.addTopLevelParts(e.diagram.selection, true));
+          if (!ok) e.diagram.currentTool.doCancel();
+        }
+          
+      }
+
+      // stream port template definition
+      {
+        function update_portType(node, portType) {
+          //console.log("Previous name: " + node.name);
+          node.name = portType;
+          //console.log("Changed name: " + node.name);
+        } 
+
+        function toggleAllStreamPort(obj) {
+          var cur_shp = obj.findObject("STREAM_PORT");
+          var nextState;
+
+          if(obj.name === "STREAM_INPUT_PORT") {
+            nextState = !cur_shp.toLinkable;
+          } else if(obj.name === "STREAM_OUTPUT_PORT") {
+            nextState = !cur_shp.fromLinkable;
+          } else if(obj.name === "STREAM_DELEGATION_PORT") {
+            nextState = !cur_shp.toLinkable;
+          } 
+
+          toggleAllStreamPort_sync(nextState);
+        }
+
+        function toggleAllStreamPort_sync(nextState) {
+          myDiagram.nodes.each(function(node) {
+            if (node.name === "STREAM_INPUT_PORT" 
+                || node.name === "STREAM_OUTPUT_PORT"
+                || node.name === "STREAM_DELEGATION_PORT") {
+              var shp = node.findObject("STREAM_PORT");
+              
+              if(node.name === "STREAM_INPUT_PORT") {
+                if(nextState === true) {                
+                  shp.toLinkable = true;
+                  shp.stroke = "#FF00FF";
+                  shp.strokeWidth = 2;
+                } else {
+                  shp.toLinkable = false;
+                  shp.stroke = "black";
+                  shp.strokeWidth = 1;
+                }
+              } else if(node.name === "STREAM_OUTPUT_PORT") {
+                if(nextState === true) {                
+                  shp.fromLinkable = true;
+                  shp.stroke = "#FF00FF";
+                  shp.strokeWidth = 2;
+                } else {             
+                  shp.fromLinkable = false;
+                  shp.stroke = "black";
+                  shp.strokeWidth = 1;
+                }
+              } else if(node.name === "STREAM_DELEGATION_PORT") {
+                if(nextState === true) { 
+                  shp.toLinkable = true;
+                  shp.fromLinkable = true;
+                  shp.stroke = "#FF00FF";
+                  shp.strokeWidth = 2;
+                } else {             
+                  shp.toLinkable = false;
+                  shp.fromLinkable = false;
+                  shp.stroke = "black";
+                  shp.strokeWidth = 1;
+                }              
+              } else { }
+              updateStates();
+            }
+          });
+        }
+
+        function activateAllStreamPort() {
+          toggleAllStreamPort_sync(true);
+        }
+
+        function deactivateAllStreamPort() {
+          toggleAllStreamPort_sync(false);
+        }
+
+
+        function alignToPort(e, obj) {
+          var criterion_y = go.Point.parse(obj.part.data.loc).y;
+
+          console.log(obj.part.key);
+          console.log(obj.part.data.loc);
+          console.log(obj.part.location.x);
+          console.log(obj.part.location.y);
+          console.log(criterion_y);
+
+          myDiagram.selection.each(function(part) {
+            if(part.name === "STREAM_UNTYPED_PORT"
+              || part.name === "STREAM_INPUT_PORT"
+              || part.name === "STREAM_OUTPUT_PORT"
+              || part.name === "STREAM_DELEGATION_PORT") {
+              part.location = new go.Point(part.location.x, criterion_y);
+            }
+          });
+        }
+
+        function splash_streamPortStyle() {
+          return {
+            name: "STREAM_PORT",
+            desiredSize: new go.Size(20, 20),
+            fill: "transparent",
+            fromSpot: go.Spot.Right,
+            fromLinkable: false,
+            fromMaxLinks: Number.MAX_VALUE,
+            toSpot: go.Spot.Left,
+            toLinkable: false,
+            toMaxLinks: 1,
+            stroke: "black",
+            cursor: "pointer",
+          };
+        }
+               
+        var template_streamPort = 
+          $(go.Node, "Spot", splash_portStyle(),
+            { 
+              name: "STREAM_UNTYPED_PORT",
+              zOrder : 10,
+              contextMenu:     // define a context menu for each node
+                $("ContextMenu",  // that has one button
+                  $("ContextMenuButton",
+                    $(go.TextBlock, {margin: 5, width: 150}, "Align to"),
+                    { 
+                      click: alignToPort 
+                    })
+                  // more ContextMenuButtons would go here
+              )  // end Adornment
+            },
+          $(go.Shape, "Rectangle", 
+            { width: 20, height:20, },
+            new go.Binding("fill", "", function(data,node) {
+              return isNaN(data.Rate) ? "white" : "gray";
+            }).makeTwoWay(),
+            ),
+          $(go.Shape, "TriangleRight", 
+            { width: 10, height: 10, },
+            new go.Binding("fill", "", function(data,node) {
+              return isNaN(data.Rate) ? "black" : "white";
+            }).makeTwoWay(),
+            ),
+          $(go.Shape, "Rectangle", splash_streamPortStyle(),
+            { portId: "", alignment: new go.Spot(0.5, 0.5) }),
+          new go.Binding("name", "PORT_TYPE").makeTwoWay(),
+          { doubleClick: function(e, obj) {
+              e.diagram.startTransaction("Toggle Input");
+              toggleAllStreamPort(obj);
+              // var shp = obj.findObject("STREAM_PORT");
+              
+              // if(obj.name === "STREAM_INPUT_PORT") {
+              //   if(shp.toLinkable === false) {                
+              //     shp.toLinkable = true;
+              //     shp.stroke = "#FF00FF";
+              //     shp.strokeWidth = 2;
+              //   } else {
+              //     shp.toLinkable = false;
+              //     shp.stroke = "black";
+              //     shp.strokeWidth = 1;
+              //   }
+              // } else if(obj.name === "STREAM_OUTPUT_PORT") {
+              //   if(shp.fromLinkable === false) {                
+              //     shp.fromLinkable = true;
+              //     shp.stroke = "#FF00FF";
+              //     shp.strokeWidth = 2;
+              //   } else {             
+              //     shp.fromLinkable = false;
+              //     shp.stroke = "black";
+              //     shp.strokeWidth = 1;
+              //   }
+              // } else if(obj.name === "STREAM_DELEGATION_PORT") {
+              //   if(shp.toLinkable === false || shp.fromLinkable === false) { 
+              //     shp.toLinkable = true;
+              //     shp.fromLinkable = true;
+              //     shp.stroke = "#FF00FF";
+              //     shp.strokeWidth = 2;
+              //   } else {             
+              //     shp.toLinkable = false;
+              //     shp.fromLinkable = false;
+              //     shp.stroke = "black";
+              //     shp.strokeWidth = 1;
+              //   }              
+              // } else { }
+              // updateStates();
+              e.diagram.commitTransaction("Toggle Input");
+            }
+          }
+				); 
+      }     
+      
+      
+      // event port template definition
+      {
+       
+        function splash_eventPortStyle() {
+          return {
+            name: "EVENT_PORT",
+            desiredSize: new go.Size(20, 20),
+            fill: "transparent",
+            fromSpot: go.Spot.Top,
+            fromLinkable: false,
+            fromMaxLinks: Number.MAX_VALUE,
+            toSpot: go.Spot.Top,
+            toLinkable: false,
+            toMaxLinks: 1,
+            stroke: "black",
+            cursor: "pointer",
+          };
+        } 
+        
+        function toggleAllEventPort(obj) {
+          var cur_shp = obj.findObject("EVENT_PORT");
+          var nextState;
+
+          if(obj.name === "EVENT_INPUT_PORT") {
+            nextState = !cur_shp.toLinkable;
+          } else if(obj.name === "EVENT_OUTPUT_PORT") {
+            nextState = !cur_shp.fromLinkable;
+          } else if(obj.name === "EVENT_DELEGATION_INPUT_PORT") {
+            nextState = !cur_shp.toLinkable;
+          } else if(obj.name === "EVENT_DELEGATION_OUTPUT_PORT") {
+            nextState = !cur_shp.fromLinkable;
+          }
+
+          toggleAllEventPort_sync(nextState);
+        }
+
+        function toggleAllEventPort_sync(nextState) {
+          myDiagram.nodes.each(function(node) {
+            if (node.name === "EVENT_INPUT_PORT" 
+                || node.name === "EVENT_DELEGATION_INPUT_PORT"
+                || node.name === "EVENT_OUTPUT_PORT"
+                || node.name === "EVENT_DELEGATION_OUTPUT_PORT") {
+              var shp = node.findObject("EVENT_PORT");             
+                if(node.name === "EVENT_INPUT_PORT") {
+                  shp.toSpot = go.Spot.Top;
+                  shp.fromSpot = go.Spot.Top;
+                  if(nextState === true) {                
+                    shp.toLinkable = true;
+                    shp.stroke = "#FF00FF";
+                    shp.strokeWidth = 2;
+                  } else {
+                    shp.toLinkable = false;
+                    shp.stroke = "black";
+                    shp.strokeWidth = 1;
+                  }
+                } else if (node.name === "EVENT_DELEGATION_INPUT_PORT") {
+                  shp.toSpot = go.Spot.Top;
+                  shp.fromSpot = go.Spot.Bottom;
+                  if(nextState === true) { 
+                    shp.toLinkable = true;
+                    shp.fromLinkable = true;
+                    shp.stroke = "#FF00FF";
+                    shp.strokeWidth = 2;
+                  } else {             
+                    shp.toLinkable = false;
+                    shp.fromLinkable = false;
+                    shp.stroke = "black";
+                    shp.strokeWidth = 1;
+                  } 
+                } else if(node.name === "EVENT_OUTPUT_PORT") {
+                  shp.toSpot = go.Spot.Top;
+                  shp.fromSpot = go.Spot.Top;
+                  if(nextState === true) {                
+                    shp.fromLinkable = true;
+                    shp.stroke = "#FF00FF";
+                    shp.strokeWidth = 2;
+                  } else {             
+                    shp.fromLinkable = false;
+                    shp.stroke = "black";
+                    shp.strokeWidth = 1;
+                  }
+                } else if (node.name === "EVENT_DELEGATION_OUTPUT_PORT"){
+                  shp.toSpot = go.Spot.Bottom;
+                  shp.fromSpot = go.Spot.Top;
+                  if(nextState === true) { 
+                    shp.toLinkable = true;
+                    shp.fromLinkable = true;
+                    shp.stroke = "#FF00FF";
+                    shp.strokeWidth = 2;
+                  } else {             
+                    shp.toLinkable = false;
+                    shp.fromLinkable = false;
+                    shp.stroke = "black";
+                    shp.strokeWidth = 1;
+                  } 
+                } else {}
+
+              updateStates();
+            }
+          });
+        }
+
+        function activateAllEventPort() {
+          toggleAllEventPort_sync(true);
+        }
+
+        function deactivateAllEventPort() {
+          toggleAllEventPort_sync(false);
+        }        
+
+        var template_eventInputPort = 
+          $(go.Node, "Spot", splash_portStyle(),
+            { 
+              name: "EVENT_INPUT_PORT",
+              zOrder : 10
+              },
+            $(go.Shape, "Rectangle", 
+              { fill: "white", width: 20, height:20 }),
+            $(go.Shape, "ISOProcess", 
+              { fill: "black", width: 16, height: 13, stroke: "white", angle: 90, alignment: new go.Spot(0.5, 0.5)},
+            ),
+            $(go.Shape, "Rectangle", splash_eventPortStyle(),
+              { portId: "", alignment: new go.Spot(0.5, 0.5) }),
+            new go.Binding("name", "PORT_TYPE").makeTwoWay(),
+            { doubleClick: function(e, obj) {
+                e.diagram.startTransaction("Toggle Input");
+                toggleAllEventPort(obj);
+                // var shp = obj.findObject("EVENT_PORT");             
+                //   if(obj.name === "EVENT_INPUT_PORT") {
+                //     shp.toSpot = go.Spot.Top;
+                //     shp.fromSpot = go.Spot.Top;
+                //     if(shp.toLinkable === false) {                
+                //       shp.toLinkable = true;
+                //       shp.stroke = "#FF00FF";
+                //       shp.strokeWidth = 2;
+                //     } else {
+                //       shp.toLinkable = false;
+                //       shp.stroke = "black";
+                //       shp.strokeWidth = 1;
+                //     }
+                //   } else if (obj.name === "EVENT_DELEGATION_INPUT_PORT") {
+                //     shp.toSpot = go.Spot.Top;
+                //     shp.fromSpot = go.Spot.Bottom;
+                //     if(shp.toLinkable === false || shp.fromLinkable === false) { 
+                //       shp.toLinkable = true;
+                //       shp.fromLinkable = true;
+                //       shp.stroke = "#FF00FF";
+                //       shp.strokeWidth = 2;
+                //     } else {             
+                //       shp.toLinkable = false;
+                //       shp.fromLinkable = false;
+                //       shp.stroke = "black";
+                //       shp.strokeWidth = 1;
+                //     } 
+                //   } else {}
+
+                // updateStates();
+                e.diagram.commitTransaction("Toggle Input");
+              }
+            }
+  				); 
+      
+      
+        var template_eventOutputPort = 
+          $(go.Node, "Spot", splash_portStyle(),
+            { 
+              name: "EVENT_OUTPUT_PORT",
+              zOrder : 10
+              },
+            $(go.Shape, "Rectangle", 
+              { fill: "white", width: 20, height:20 }),
+            $(go.Shape, "ISOProcess", 
+              { fill: "black", width: 16, height: 13, stroke: "white", angle: 270, alignment: new go.Spot(0.5, 0.5)},
+            ),
+            $(go.Shape, "Rectangle", splash_eventPortStyle(),
+              { portId: "", alignment: new go.Spot(0.5, 0.5) }),
+            new go.Binding("name", "PORT_TYPE").makeTwoWay(),
+            { doubleClick: function(e, obj) {
+                e.diagram.startTransaction("Toggle Input");
+                var shp = obj.findObject("EVENT_PORT");             
+                toggleAllEventPort(obj);
+                //   if(obj.name === "EVENT_OUTPUT_PORT") {
+                //     shp.toSpot = go.Spot.Top;
+                //     shp.fromSpot = go.Spot.Top;
+                //     if(shp.fromLinkable === false) {                
+                //       shp.fromLinkable = true;
+                //       shp.stroke = "#FF00FF";
+                //       shp.strokeWidth = 2;
+                //     } else {             
+                //       shp.fromLinkable = false;
+                //       shp.stroke = "black";
+                //       shp.strokeWidth = 1;
+                //     }
+                //   } else if (obj.name === "EVENT_DELEGATION_OUTPUT_PORT"){
+                //     shp.toSpot = go.Spot.Bottom;
+                //     shp.fromSpot = go.Spot.Top;
+                //     if(shp.toLinkable === false || shp.fromLinkable === false) { 
+                //       shp.toLinkable = true;
+                //       shp.fromLinkable = true;
+                //       shp.stroke = "#FF00FF";
+                //       shp.strokeWidth = 2;
+                //     } else {             
+                //       shp.toLinkable = false;
+                //       shp.fromLinkable = false;
+                //       shp.stroke = "black";
+                //       shp.strokeWidth = 1;
+                //     } 
+                //   } else {}
+
+                // updateStates();
+                e.diagram.commitTransaction("Toggle Input");
+              }
+            }
+  				); 
+      }
+      
+      
+      // mode change port template definition
+      {
+        function splash_modeChangePortStyle() {
+          return {
+            name: "MODECHANGE_PORT",
+            desiredSize: new go.Size(20, 20),
+            fill: "transparent",
+            fromSpot: go.Spot.Top,
+            fromLinkable: false,
+            fromMaxLinks: Number.MAX_VALUE,
+            toSpot: go.Spot.Top,
+            toLinkable: false,
+            toMaxLinks: 1,
+            stroke: "black",
+            cursor: "pointer",
+          };
+        } 
+        
+      var template_modeChangeInputPort = 
+        $(go.Node, "Spot", splash_portStyle(),
+          { 
+            name: "MODECHANGE_INPUT_PORT",
+            zOrder : 10
+            },
+          $(go.Shape, "Rectangle", 
+            { fill: "white", width: 20, height:20 }),
+          $(go.Shape, "Circle", 
+            { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.5, 0.7) }),
+          $(go.Shape, "Circle", 
+            { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.5-0.231, 0.3) }),
+          $(go.Shape, "Circle", 
+            { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.5+0.231, 0.3) }),
+          $(go.Shape, "Rectangle", splash_eventPortStyle(),
+            { portId: "", alignment: new go.Spot(0.5, 0.5) }),
+          { doubleClick: function(e, obj) {
+              e.diagram.startTransaction("Toggle Input");
+              var shp = obj.findObject("EVENT_PORT");             
+
+                if(shp.toLinkable === false) {                
+                  shp.toLinkable = true;
+                  shp.stroke = "#FF00FF";
+                  shp.strokeWidth = 2;
+                } else {
+                  shp.toLinkable = false;
+                  shp.stroke = "black";
+                  shp.strokeWidth = 1;
+                }
+
+              updateStates();
+              e.diagram.commitTransaction("Toggle Input");
+            }
+          }
+				); 
+      
+      
+      var template_modeChangeOutputPort = 
+        $(go.Node, "Spot", splash_portStyle(),
+          { 
+            name: "MODECHANGE_OUTPUT_PORT",
+            zOrder : 10
+            },
+          $(go.Shape, "Rectangle", 
+            { fill: "white", width: 20, height:20 }),
+          $(go.Shape, "Circle", 
+            { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.5, 0.3) }),
+          $(go.Shape, "Circle", 
+            { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.5-0.231, 0.7) }),
+          $(go.Shape, "Circle", 
+            { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.5+0.231, 0.7) }),
+          $(go.Shape, "Rectangle", splash_eventPortStyle(),
+          ),
+          $(go.Shape, "Rectangle", splash_eventPortStyle(),
+            { portId: "", alignment: new go.Spot(0.5, 0.5) }),
+          { doubleClick: function(e, obj) {
+              e.diagram.startTransaction("Toggle Input");
+              var shp = obj.findObject("EVENT_PORT");             
+
+                if(shp.fromLinkable === false) {                
+                  shp.fromLinkable = true;
+                  shp.stroke = "#FF00FF";
+                  shp.strokeWidth = 2;
+                } else {             
+                  shp.fromLinkable = false;
+                  shp.stroke = "black";
+                  shp.strokeWidth = 1;
+                }
+
+              updateStates();
+              e.diagram.commitTransaction("Toggle Input");
+            }
+          }
+				); 
+      }
+      
+      
+
+      
+      // processing component group template definition
+      {
+
+        function highlightProcessingComponent(e, grp, show) { 
+          if (!grp) return;
+          e.handled = true;
+          if (show) {
+            // cannot depend on the grp.diagram.selection in the case of external drag-and-drops;
+            // instead depend on the DraggingTool.draggedParts or .copiedParts
+            var tool = grp.diagram.toolManager.draggingTool;
+            var map = tool.draggedParts || tool.copiedParts;  // this is a Map
+            // now we can check to see if the Group will accept membership of the dragged Parts
+            if (grp.canAddMembers(map.toKeySet())) {    
+              return;
+            }
+          }
+          grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = null;
+          grp.findObject("AREA_STREAM_INPUT_PORT").fill = null;
+          grp.findObject("AREA_EVENT_PORT").fill = null;
+        };
+        
+        var isIncoming_toProcessingComponent = false;
+        var posX_atProcessingComponent;
+        var posY_atProcessingComponent;
+        var portType_atProcessingComponent;
+
+        var template_processingComponent =
+        $(go.Group, "Spot", splash_atomicComponentStyle(),
+          {
+            name: "PROCESSING",        
+            //visible: false,
+            mouseDragEnter: function(e, grp, prev) {                              
+              isIncoming_toProcessingComponent = true;              
+              highlightProcessingComponent(e, grp, true);               
+            },
+            mouseDragLeave: function(e, grp, next) { 
+              highlightProcessingComponent(e, grp, false); 
+              isIncoming_toProcessingComponent = false;             
+            },                          
+
+            memberValidation: function(grp, node) {
+              console.log("memberValidation()");
+              
+              var selectedName = node.name;
+              
+              var grp_loc = new go.Point(0, 0);
+              var node_loc = new go.Point(0, 0);
+              
+              var grp_height = grp.actualBounds.height;
+              var grp_width = grp.actualBounds.width;              
+              
+              if (grp !== null && grp.location.isReal()) {
+                grp_loc = grp.location;
+                node_loc = node.location;
+              }
+
+              if(selectedName === "STREAM_UNTYPED_PORT" 
+                  || selectedName === "STREAM_INPUT_PORT" 
+                  || selectedName === "STREAM_OUTPUT_PORT"
+                  || selectedName === "STREAM_DELEGATION_PORT") {
+                if(isIncoming_toProcessingComponent) {            
+                     
+                  if(grp_loc.x - node_loc.x > 0) {
+                    grp.findObject("AREA_STREAM_INPUT_PORT").fill = "green";
+                    posX_atProcessingComponent = grp_loc.x - grp_width/2-10;
+                    portType_atProcessingComponent = "STREAM_INPUT_PORT";
+                  }
+                  else {
+                    grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = "blue";
+                    posX_atProcessingComponent = grp_loc.x + grp_width/2 - 10;
+                    portType_atProcessingComponent = "STREAM_OUTPUT_PORT";
+                  }
+                  
+                  return true; 
+                } else {
+                  update_portType(node, portType_atProcessingComponent);
+                  node.position = new go.Point(posX_atProcessingComponent, node_loc.y);
+                  //addLog("add a new stream port!");
+                  return true;
+                }
+              } else if(selectedName === "EVENT_INPUT_PORT" 
+                        || selectedName === "EVENT_OUTPUT_PORT"
+                        || selectedName === "EVENT_DELEGATION_INPUT_PORT"
+                        || selectedName === "EVENT_DELEGATION_OUTPUT_PORT") {
+                if(isIncoming_toProcessingComponent) {
+                  grp.findObject("AREA_EVENT_PORT").fill = "yellow";
+                  posY_atProcessingComponent = grp_loc.y - grp_height/2-10;
+                  return true; 
+                } else {
+                  node.position = new go.Point(node_loc.x, posY_atProcessingComponent);
+                  if(selectedName === "EVENT_DELEGATION_INPUT_PORT") update_portType(node, "EVENT_INPUT_PORT");
+                  if(selectedName === "EVENT_DELEGATION_OUTPUT_PORT") update_portType(node, "EVENT_OUTPUT_PORT");
+                  //addLog("add new event port!");
+                  return true;
+                }
+              } else { 
+                return false; 
+              }
+            },
+          },
+          $(go.Shape, "Rectangle",
+            { 
+              name: "SHAPE" ,
+              fill: "white", stroke: "black", strokeWidth: 1.5,
+             	height: 100, width: 100,
+
+            },
+            new go.Binding("width", "WIDTH").makeTwoWay(),
+            new go.Binding("height", "HEIGHT").makeTwoWay(),   
+          ),   
+          $(go.TextBlock,
+            {
+              stretch: go.GraphObject.Horizontal,
+              alignment: go.Spot.BottomLeft,
+              alignmentFocus: new go.Spot(0,0,0,0),
+              textAlign: "center",
+              margin: 2,
+              overflow: go.TextBlock.OverflowEllipsis,
+              maxLines: 5,
+              
+            },
+            new go.Binding("text", "NAME").makeTwoWay(),
+          ),
+          
+          $(go.Shape, "Rectangle",
+            { 
+              name: "AREA_STREAM_INPUT_PORT",
+              stretch: go.GraphObject.Vertical,
+              fill: null, stroke: null, strokeWidth: 0,
+              width: 30,
+              opacity: 0.5,
+              alignment: go.Spot.Left,
+              alignmentFocus: new go.Spot(0,0.5,0,0),
+              }            
+          ),  
+          $(go.Shape, "Rectangle",
+            { 
+              name: "AREA_STREAM_OUTPUT_PORT",
+              stretch: go.GraphObject.Vertical,
+              fill: null, stroke: null, strokeWidth: 0,
+              width: 30,
+              opacity: 0.5,
+              alignment: go.Spot.Right,
+              alignmentFocus: new go.Spot(1,0.5,0,0),              
+              }            
+          ),  
+          $(go.Shape, "Rectangle",
+            { 
+              name: "AREA_EVENT_PORT",
+              stretch: go.GraphObject.Horizontal,
+              fill: null, stroke: null, strokeWidth: 0,
+              height: 30,
+              opacity: 0.5,
+              alignment: go.Spot.TopLeft,
+              alignmentFocus: new go.Spot(0,0,0,0),              
+            }            
+          ),
+        ); 
+      }
+      
+     
+      // source component group template definition
+      {
+      
+        function highlightSourceComponent(e, grp, show) { 
+          if (!grp) return;
+          e.handled = true;
+          if (show) {
+            // cannot depend on the grp.diagram.selection in the case of external drag-and-drops;
+            // instead depend on the DraggingTool.draggedParts or .copiedParts
+            var tool = grp.diagram.toolManager.draggingTool;
+            var map = tool.draggedParts || tool.copiedParts;  // this is a Map
+            // now we can check to see if the Group will accept membership of the dragged Parts
+            if (grp.canAddMembers(map.toKeySet())) {    
+              return;
+            }
+          }
+          grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = null;
+        };
+      
+        var isIncoming_toSourceComponent = false;
+        var posX_atSourceComponent;
+        var posY_atSourceComponent
+      
+        var template_sourceComponent = 
+          $(go.Group, "Spot", splash_atomicComponentStyle(),
+            { 
+              name: "SOURCE",
+              resizable: false,
+            
+              mouseDragEnter: function(e, grp, prev) {                                    
+                isIncoming_toSourceComponent = true;              
+                highlightSourceComponent(e, grp, true);                 
+              },
+              mouseDragLeave: function(e, grp, next) { 
+                highlightSourceComponent(e, grp, false); 
+                isIncoming_toSourceComponent = false;     
+              },                          
+
+              memberAdded: function(grp, node) {
+                var selectedName = node.name;
+                grp.data.haveOutputPort = true;
+              },
+              memberRemoved: function(grp, node) {
+                grp.data.haveOutputPort = false;
+              },             
+              
+              
+              memberValidation: function(grp, node) {
+                console.log("memberValidation()");
+                
+                var selectedName = node.name;
+                
+                var grp_loc = new go.Point(0, 0);
+                var node_loc = new go.Point(0, 0);
+                
+                var grp_height = grp.actualBounds.height;
+                var grp_width = grp.actualBounds.width;          
+                
+                if (grp !== null && grp.location.isReal()) {
+                  grp_loc = grp.location;
+                  node_loc = node.location;
+                }
+
+                if(grp.data.haveOutputPort) return false;
+
+                if(selectedName === "STREAM_UNTYPED_PORT" 
+                    || selectedName === "STREAM_INPUT_PORT" 
+                    || selectedName === "STREAM_OUTPUT_PORT"
+                    || selectedName === "STREAM_DELEGATION_PORT") {
+                  if(isIncoming_toSourceComponent) {
+                    grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = "blue";
+                    posX_atSourceComponent = grp_loc.x + grp_width/2 - 10;
+                    posY_atSourceComponent = grp_loc.y - grp_height/2 + 10;                    
+                    return true; 
+                  } else {
+                    update_portType(node, "STREAM_OUTPUT_PORT");
+                    node.position = new go.Point(posX_atSourceComponent, posY_atSourceComponent);
+                    //addLog("add new stream port!");
+
+                    return true;
+                  }
+                } else { 
+                return false; 
+              }
+            },
+          },
+            
+          $(go.Shape, "Rectangle",
+            { 
+              name: "FIXED-SIZE_SHAPE",
+              fill: "white", width: 80, height: 40, stroke: "black", strokeWidth: 1.5,
+              alignmentFocus: new go.Spot(0,0,0,0),
+            }
+          ), 
+          
+          $(go.TextBlock,
+            {
+              stretch: go.GraphObject.Horizontal,
+              alignment: go.Spot.BottomLeft,
+              alignmentFocus: new go.Spot(0,0,0,0),
+              textAlign: "center",
+              margin: 2,
+              overflow: go.TextBlock.OverflowEllipsis,
+              maxLines: 5,              
+            },
+            new go.Binding("text", "NAME").makeTwoWay(),
+          ),
+          
+          $(go.Shape, "Rectangle",
+            { 
+              name: "AREA_STREAM_OUTPUT_PORT",
+              stretch: go.GraphObject.Vertical,
+              fill: null, stroke: null, strokeWidth: 0,
+              width: 30,
+              opacity: 0.5,
+              alignment: go.Spot.Right,
+              alignmentFocus: new go.Spot(1,0.5,0,0),              
+            }            
+          ), 
+        );          
+      }
+      
+      // sink component group template definition
+      {
+      
+        function highlightSinkComponent(e, grp, show) { 
+          if (!grp) return;
+          e.handled = true;
+          if (show) {
+            // cannot depend on the grp.diagram.selection in the case of external drag-and-drops;
+            // instead depend on the DraggingTool.draggedParts or .copiedParts
+            var tool = grp.diagram.toolManager.draggingTool;
+            var map = tool.draggedParts || tool.copiedParts;  // this is a Map
+            // now we can check to see if the Group will accept membership of the dragged Parts
+            if (grp.canAddMembers(map.toKeySet())) {    
+              return;
+            }
+          }
+          grp.findObject("AREA_STREAM_INPUT_PORT").fill = null;
+        };
+      
+        var isIncoming_toSinkComponent = false;
+        var posX_atSinkComponent;
+        var posY_atSinkComponent
+      
+        var template_sinkComponent = 
+          $(go.Group, "Spot", splash_atomicComponentStyle(),
+            { 
+              name: "SINK",
+              resizable: false,
+            
+              mouseDragEnter: function(e, grp, prev) {      
+                console.log("mouseDragEnter()");
+                              
+                isIncoming_toSinkComponent = true;              
+                highlightSinkComponent(e, grp, true); 
+                
+              },
+              mouseDragLeave: function(e, grp, next) { 
+                console.log("mouseDragLeave()");
+                highlightSinkComponent(e, grp, false); 
+                isIncoming_toSinkComponent = false;     
+                console.log("mouseDragLeave() end");
+              },                          
+
+              memberAdded: function(grp, node) {
+                var selectedName = node.name;
+                grp.data.haveInputPort = true;
+              },
+              memberRemoved: function(grp, node) {
+                grp.data.haveInputPort = false;
+              },             
+              
+              
+              memberValidation: function(grp, node) {
+                console.log("memberValidation()");
+
+                
+                var selectedName = node.name;
+                
+                var grp_loc = new go.Point(0, 0);
+                var node_loc = new go.Point(0, 0);
+                
+                var grp_height = grp.actualBounds.height;
+                var grp_width = grp.actualBounds.width;              
+                
+                if (grp !== null && grp.location.isReal()) {
+                  grp_loc = grp.location;
+                  node_loc = node.location;
+                }
+
+                if(grp.data.haveInputPort) return false;
+
+                if(selectedName === "STREAM_UNTYPED_PORT" 
+                    || selectedName === "STREAM_INPUT_PORT" 
+                    || selectedName === "STREAM_OUTPUT_PORT"
+                    || selectedName === "STREAM_DELEGATION_PORT") {
+                  if(isIncoming_toSinkComponent) {
+                    grp.findObject("AREA_STREAM_INPUT_PORT").fill = "green";
+                    posX_atSinkComponent = grp_loc.x - grp_width/2 - 10;
+                    posY_atSinkComponent = grp_loc.y - grp_height/2 + 10;           
+                    return true; 
+                  } else {
+                    update_portType(node, "STREAM_INPUT_PORT");
+                    node.position = new go.Point(posX_atSinkComponent, posY_atSinkComponent);
+                    //addLog("add new stream port!");
+
+                    return true;
+                  }
+                } else { 
+                return false; 
+              }
+            },
+          },
+            
+          $(go.Shape, "Rectangle",
+            { 
+              name: "FIXED-SIZE_SHAPE",
+              fill: "white", width: 80, height: 40, stroke: "black", strokeWidth: 1.5
+            }
+          ), 
+    
+          $(go.TextBlock,
+            {
+              stretch: go.GraphObject.Horizontal,
+              alignment: go.Spot.BottomLeft,
+              alignmentFocus: new go.Spot(0,0,0,0),
+              textAlign: "center",
+              margin: 2,
+              overflow: go.TextBlock.OverflowEllipsis,
+              maxLines: 5,
+              
+            },
+            new go.Binding("text", "NAME").makeTwoWay(),
+          ),
+    
+          $(go.Shape, "Rectangle",
+            { 
+              name: "AREA_STREAM_INPUT_PORT",
+              stretch: go.GraphObject.Vertical,
+              fill: null, stroke: null, strokeWidth: 0,
+              width: 30,
+              opacity: 0.5,
+              alignment: go.Spot.Left,
+              alignmentFocus: new go.Spot(0,0.5,0,0),              
+            }            
+          ), 
+        );          
+      }
+      
+      // fusion component group template definition
+      {      
+      
+        function highlightFusionOperator(e, grp, show) { 
+          if (!grp) return;
+          e.handled = true;
+          if (show) {
+            // cannot depend on the grp.diagram.selection in the case of external drag-and-drops;
+            // instead depend on the DraggingTool.draggedParts or .copiedParts
+            var tool = grp.diagram.toolManager.draggingTool;
+            var map = tool.draggedParts || tool.copiedParts;  // this is a Map
+            // now we can check to see if the Group will accept membership of the dragged Parts
+            if (grp.canAddMembers(map.toKeySet())) {    
+              return;
+            }
+          }
+          grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = null;
+          grp.findObject("AREA_STREAM_INPUT_PORT").fill = null;
+        };
+
+       
+        var isIncoming_toFusionOperator = false;
+        var posX_atFusionOperator;
+        var posY_atFusionOperator;
+        var portType_atFusionOperator;
+
+        
+        var template_fusionOperator =
+        $(go.Group, "Spot", splash_atomicComponentStyle(),
+          {
+            name: "FUSION",
+            
+            mouseDragEnter: function(e, grp, prev) {      
+              //console.log("mouseDragEnter()");
+              isIncoming_toFusionOperator = true;              
+              highlightFusionOperator(e, grp, true); 
+            },
+            mouseDragLeave: function(e, grp, next) { 
+              //console.log("mouseDragLeave()");
+              highlightFusionOperator(e, grp, false); 
+              isIncoming_toFusionOperator = false;              
+            },                          
+            
+            memberAdded: function(grp, node) {
+              var selectedName = node.name;
+              if(node.name === "STREAM_OUTPUT_PORT") grp.data.haveOutputPort = true;
+            },
+            memberRemoved: function(grp, node) {
+              if(node.name === "STREAM_OUTPUT_PORT") grp.data.haveOutputPort = false;
+            }, 
+            
+            
+            memberValidation: function(grp, node) {
+              console.log("memberValidation()");
+              var selectedName = node.name;
+              
+              var grp_loc = new go.Point(0, 0);
+              var node_loc = new go.Point(0, 0);
+              
+              var grp_height = grp.actualBounds.height;
+              var grp_width = grp.actualBounds.width;              
+              
+              if (grp !== null && grp.location.isReal()) {
+                grp_loc = grp.location;
+                node_loc = node.location;
+              }
+
+              if(selectedName === "STREAM_UNTYPED_PORT" 
+                || selectedName === "STREAM_INPUT_PORT" 
+                || selectedName === "STREAM_OUTPUT_PORT"
+                || selectedName === "STREAM_DELEGATION_PORT") {
+                if(isIncoming_toFusionOperator) {            
+                     
+                  if(grp_loc.x - node_loc.x > 0) {
+                    grp.findObject("AREA_STREAM_INPUT_PORT").fill = "green";
+                    posX_atFusionOperator = grp_loc.x - grp_width/2 - 10;
+                    portType_atFusionOperator = "STREAM_INPUT_PORT";
+                  }
+                  else {
+                    if(grp.data.haveOutputPort) return false;
+                    
+                    grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = "blue";
+                    posX_atFusionOperator = grp_loc.x + grp_width/2 - 10;
+                    posY_atFusionOperator = grp_loc.y - 10;  
+                    portType_atFusionOperator = "STREAM_OUTPUT_PORT";
+                    
+                  }
+                  
+                  return true; 
+                } else {
+                  update_portType(node, portType_atFusionOperator);
+                  console.log(grp_loc);
+                  console.log(grp_height + ", " + grp_width);
+                  console.log(node_loc);
+                  
+                  if(node.name === "STREAM_OUTPUT_PORT") {                    
+                    node.position = new go.Point(posX_atFusionOperator, posY_atFusionOperator);
+                  } else {
+                    node.position = new go.Point(posX_atFusionOperator, node_loc.y);
+                  }
+                  return true;
+                }
+              } else { return false; }
+            },
+
+
+          },
+          $(go.Shape, "Trapezoid",
+            { 
+              name: "SHAPE" , 
+              height: 40, width: 100,
+              fill: "white", stroke: "black", strokeWidth: 1.5, angle: 90 
+            },
+
+            new go.Binding("height", "WIDTH").makeTwoWay(),  
+            new go.Binding("width", "HEIGHT").makeTwoWay(),                 
+          ),
+          $(go.Shape, "Rectangle",
+            { 
+              name: "AREA_STREAM_INPUT_PORT",
+              stretch: go.GraphObject.Vertical,
+              fill: null, stroke: null, strokeWidth: 0,
+              width: 30,
+              opacity: 0.5,
+              alignment: go.Spot.Left,
+              alignmentFocus: new go.Spot(0,0.5,0,0),
+              }            
+          ),  
+          $(go.Shape, "Rectangle",
+            new go.Binding("height", "actualBounds", function(b) {return b.height*0.6;}).ofObject("SHAPE"),
+            { 
+              name: "AREA_STREAM_OUTPUT_PORT",
+              stretch: go.GraphObject.Vertical,
+              fill: null, stroke: null, strokeWidth: 0,
+              width: 30,
+              opacity: 0.5,
+              alignment: go.Spot.Right,
+              alignmentFocus: new go.Spot(1,0.5,0,0),              
+              }            
+          ),            
+        ); 
+      }
+            
+      // factory group template definition
+      {
+        var current_factoryKey;
+
+        function saveFactory(e, obj) {
+          // get the context menu that holds the button that was clicked
+          var contextmenu = obj.part;
+          // get the node data to which the Node is data bound
+          var nodedata = contextmenu.data;
+          current_factoryKey = contextmenu.key;
+
+          var copiedModel = new go.GraphLinksModel(myDiagram.model.nodeDataArray, myDiagram.model.linkDataArray);
+
+
+          var new_nodeDataArray = copiedModel.nodeDataArray.filter(factoryRelatedNode);
+          var new_linkDataArray = copiedModel.linkDataArray.filter(factoryRelatedNode);
+
+          var factoryModel = new go.GraphLinksModel(new_nodeDataArray, new_linkDataArray);
+ 
+          var blob = new Blob([factoryModel.toJson()], {type: "application/json"});
+          saveAs(blob, nodedata.NAME+".json");
+                           
+        }
+
+        function factoryRelatedNode(value) {
+          var condition;
+          if(value.key === current_factoryKey || value.group === current_factoryKey) {
+            console.log(current_factoryKey +"=?"+value.key);
+            console.log(current_factoryKey +"=?"+value.group);
+            condition = true; 
+          } else condition = false;
+          
+          return condition;
+        }
+
+        function highlightFactory(e, grp, show) { 
+          if (!grp) return;
+          e.handled = true;
+          if (show) {
+            // cannot depend on the grp.diagram.selection in the case of external drag-and-drops;
+            // instead depend on the DraggingTool.draggedParts or .copiedParts
+            var tool = grp.diagram.toolManager.draggingTool;
+            var map = tool.draggedParts || tool.copiedParts;  // this is a Map
+            // now we can check to see if the Group will accept membership of the dragged Parts
+            if (grp.canAddMembers(map.toKeySet())) {
+              return;
+            }
+          }
+          grp.findObject("SHAPE").fill = "white";
+          grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = null;
+          grp.findObject("AREA_STREAM_INPUT_PORT").fill = null;
+          grp.findObject("AREA_EVENT_PORT").fill = null;
+        };
+      
+
+        
+        var isIncoming_toFactory = false;
+        var posX_atFactory;
+        var posY_atFactory;
+        var portType_atFactory;
+        
+        var template_factory =
+        $(go.Group, "Spot", splash_factoryStyle(),
+          {
+            name: "FACTORY",
+            mouseDragEnter: function(e, grp, prev) {      
+              console.log("mouseDragEnter()");
+              isIncoming_toFactory = true;              
+              highlightFactory(e, grp, true); 
+            },
+            mouseDragLeave: function(e, grp, next) { 
+              console.log("mouseDragLeave()");
+              highlightFactory(e, grp, false); 
+              isIncoming_toFactory = false;              
+            },                          
+
+            memberAdded: function(grp, node) {
+            	if(node.name === "FACTORY") {
+            		grp.zOrder = node.zOrder-1;
+                console.log("yes factory");
+            	}
+            },
+
+            memberValidation: function(grp, node) {
+              //console.log("memberValidation()");
+              var selectedName = node.name;
+              
+              var grp_loc = new go.Point(0, 0);
+              var node_loc = new go.Point(0, 0);
+              
+              var grp_height = grp.actualBounds.height;
+              var grp_width = grp.actualBounds.width;              
+              
+              if (grp !== null && grp.location.isReal()) {
+                grp_loc = grp.location;
+                node_loc = node.location;
+              }
+
+              if(selectedName === "STREAM_UNTYPED_PORT" 
+              || selectedName === "STREAM_INPUT_PORT" 
+              || selectedName === "STREAM_OUTPUT_PORT"
+              || selectedName === "STREAM_DELEGATION_PORT") {
+                if(isIncoming_toFactory) {   
+                     
+                  if(grp_loc.x - node_loc.x > 0) {
+                    grp.findObject("AREA_STREAM_INPUT_PORT").fill = "green";
+                    posX_atFactory = grp_loc.x - grp_width/2 - 10;
+                    portType_atFactory = "STREAM_DELEGATION_PORT";
+                    return true;
+                  }
+                  else {
+                    grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = "blue";
+                    posX_atFactory = grp_loc.x + grp_width/2 - 10;
+                    portType_atFactory = "STREAM_DELEGATION_PORT";
+                  }                  
+                  return true; 
+                } else {
+                  update_portType(node, portType_atFactory);
+                  node.position = new go.Point(posX_atFactory, node_loc.y);
+                  return true;
+                }
+              } else if(selectedName === "EVENT_INPUT_PORT" 
+                        || selectedName === "EVENT_OUTPUT_PORT"
+                        || selectedName === "EVENT_DELEGATION_INPUT_PORT"
+                        || selectedName === "EVENT_DELEGATION_OUTPUT_PORT") {
+                if(isIncoming_toFactory) {
+                    grp.findObject("AREA_EVENT_PORT").fill = "yellow";
+                    posY_atFactory = grp_loc.y - grp_height/2-10;
+                  return true; 
+                } else {
+                  node.position = new go.Point(node_loc.x, posY_atFactory);
+                  if(selectedName === "EVENT_INPUT_PORT") update_portType(node, "EVENT_DELEGATION_INPUT_PORT");
+                  if(selectedName === "EVENT_OUTPUT_PORT") update_portType(node, "EVENT_DELEGATION_OUTPUT_PORT");
+                  //addLog("add new event port!");
+                  return true;
+                }
+              } else {
+                if(isIncoming_toFactory) grp.findObject("SHAPE").fill = "#FBB5B5";
+                return true; 
+
+              }
+            },
+
+            contextMenu:     // define a context menu for each node
+              $("ContextMenu",  // that has one button
+                $("ContextMenuButton",
+                  $(go.TextBlock, {margin: 5, width: 150}, "Save factory as json"),
+                  { click: saveFactory })
+                // more ContextMenuButtons would go here
+            )  // end Adornment
+          },
+          $(go.Shape, "RoundedRectangle",
+            { 
+              name: "SHAPE" ,
+              fill: "white", stroke: "black", parameter1: 10, strokeWidth: 3, 
+              width: 450, height: 250,
+            }, 
+            new go.Binding("width", "WIDTH").makeTwoWay(),
+            new go.Binding("height", "HEIGHT").makeTwoWay(),     
+
+          ),  
+
+          $(go.TextBlock,
+            {
+              stretch: go.GraphObject.Horizontal,
+              alignment: go.Spot.BottomLeft,
+              alignmentFocus: new go.Spot(0,0,0,0),
+              textAlign: "center",
+              margin: 2,
+              overflow: go.TextBlock.OverflowEllipsis,
+              maxLines: 5,
+              
+            },
+            new go.Binding("text", "NAME").makeTwoWay(),
+          ),
+          
+          $(go.Shape, "Rectangle",
+            { 
+              name: "AREA_STREAM_INPUT_PORT",
+              stretch: go.GraphObject.Vertical,
+              fill: null, stroke: null, strokeWidth: 0,
+              width: 30,
+              opacity: 0.5,
+              alignment: go.Spot.Left,
+              alignmentFocus: new go.Spot(0,0.5,0,0),
+              }            
+          ),  
+          $(go.Shape, "Rectangle",
+            { 
+              name: "AREA_STREAM_OUTPUT_PORT",
+              stretch: go.GraphObject.Vertical,
+              fill: null, stroke: null, strokeWidth: 0,
+              width: 30,
+              opacity: 0.5,
+              alignment: go.Spot.Right,
+              alignmentFocus: new go.Spot(1,0.5,0,0),              
+              }            
+          ),
+          $(go.Shape, "Rectangle",
+            { 
+              name: "AREA_EVENT_PORT",
+              stretch: go.GraphObject.Horizontal,
+              fill: null, stroke: null, strokeWidth: 0,
+              height: 30,
+              opacity: 0.5,
+              alignment: go.Spot.TopLeft,
+              alignmentFocus: new go.Spot(0,0,0,0),              
+            }  
+            
+          ),
+        ); 
+      }  
+          
+      // add the templates created above to myDiagram and palette
+      myDiagram.nodeTemplateMap.add("streamPort", template_streamPort);
+      myDiagram.nodeTemplateMap.add("eventInputPort", template_eventInputPort);
+      myDiagram.nodeTemplateMap.add("eventOutputPort", template_eventOutputPort);
+      myDiagram.nodeTemplateMap.add("modeChangeInputPort", template_modeChangeInputPort);
+      myDiagram.nodeTemplateMap.add("modeChangeOutputPort", template_modeChangeOutputPort); 
+      myDiagram.groupTemplateMap.add("sourceComponent", template_sourceComponent);   
+      myDiagram.groupTemplateMap.add("sinkComponent", template_sinkComponent);            
+      myDiagram.groupTemplateMap.add("fusionOperator", template_fusionOperator);     
+      myDiagram.groupTemplateMap.add("processingComponent", template_processingComponent);
+      myDiagram.groupTemplateMap.add("factory", template_factory);
+
+
+      myDiagram.model.nodeDataArray = [ 
+
+      ];
+          
+         
+          
+      // palette node templates
+      {
+        var paletteTemplate_streamPort = 
+              $(go.Node, "Spot",
+                new go.Binding("isShadowed", "isSelected").ofObject(),
+                {
+                  selectionAdorned: false,
+                  shadowOffset: new go.Point(0, 0),
+                  shadowBlur: 15,
+                  shadowColor: "blue",
+                  resizable: true,
+                  resizeObjectName: "SHAPE",
+                  toolTip: sharedToolTip,
+                },
+                { name: "PALETTE_STREAM_PORT", locationSpot: go.Spot.Center },
+                $(go.Shape, "RoundedRectangle",
+                  { fill: $(go.Brush, "Linear", { 0.0: "white", 1.0: "gray" }),
+                    width: 180, height: 55, stroke: "black", strokeWidth: 1,
+                    parameter1: 5,
+                    alignment: new go.Spot(0.5, 0.5)
+                  }),              
+                $(go.Shape, "Rectangle",
+                  { fill: "white", width:20, height:20, alignment: new go.Spot(0.25, 0.5) }),
+                $(go.Shape, "TriangleRight", 
+                  { fill: "black", width: 10, height: 10, alignment: new go.Spot(0.25, 0.5) }),
+                $(go.TextBlock, "Stream Port", 
+                  { 
+                    name: "TEXT_NAME",
+                    textAlign: "center",
+                    alignment: new go.Spot(0.7, 0.5) 
+                  }),            
+              );                        
+
+        var paletteTemplate_eventInputPort = 
+              $(go.Node, "Spot",
+                new go.Binding("isShadowed", "isSelected").ofObject(),
+                {
+                  selectionAdorned: false,
+                  shadowOffset: new go.Point(0, 0),
+                  shadowBlur: 15,
+                  shadowColor: "blue",
+                  resizable: true,
+                  resizeObjectName: "SHAPE",
+                  toolTip: sharedToolTip
+                },
+                { name: "PALETTE_EVENT_INPUT_PORT", locationSpot: go.Spot.Center  },
+                $(go.Shape, "RoundedRectangle",
+                  { fill: $(go.Brush, "Linear", { 0.0: "white", 1.0: "gray" }),
+                    width: 180, height: 55, stroke: "black", strokeWidth: 1,
+                    parameter1: 5,
+                    alignment: new go.Spot(0.5, 0.5)
+                  }),              
+                $(go.Shape, "Rectangle",
+                  { fill: "white", width:20, height:20, alignment: new go.Spot(0.25, 0.5) }),
+                $(go.Shape, "ISOProcess", 
+                  { fill: "black", width: 16, height: 13, stroke: "white", angle:90, alignment: new go.Spot(0.25, 0.5) }),
+                $(go.TextBlock, "Event\nInputPort", 
+                  { 
+                    name: "TEXT_NAME",
+                    textAlign: "center",
+                    alignment: new go.Spot(0.7, 0.5) }),            
+              );     
+
+        var paletteTemplate_eventOutputPort = 
+              $(go.Node, "Spot",
+                new go.Binding("isShadowed", "isSelected").ofObject(),
+                {
+                  selectionAdorned: false,
+                  shadowOffset: new go.Point(0, 0),
+                  shadowBlur: 15,
+                  shadowColor: "blue",
+                  resizable: true,
+                  resizeObjectName: "SHAPE",
+                  toolTip: sharedToolTip
+                },
+                { name: "PALETTE_EVENT_OUTPUT_PORT", locationSpot: go.Spot.Center },
+                $(go.Shape, "RoundedRectangle",
+                  { fill: $(go.Brush, "Linear", { 0.0: "white", 1.0: "gray" }),
+                    width: 180, height: 55, stroke: "black", strokeWidth: 1,
+                    parameter1: 5,
+                    alignment: new go.Spot(0.5, 0.5)
+                  }),              
+                $(go.Shape, "Rectangle",
+                  { fill: "white", width:20, height:20, alignment: new go.Spot(0.25, 0.5) }),
+                $(go.Shape, "ISOProcess", 
+                  { fill: "black", width: 16, height: 13, angle: 270, stroke: "white", alignment: new go.Spot(0.25, 0.5) }),
+                $(go.TextBlock, "Event\nOutputPort", 
+                  { 
+                    name: "TEXT_NAME",
+                    textAlign: "center",                    
+                    alignment: new go.Spot(0.7, 0.5) }),            
+              );  
+              
+        var paletteTemplate_modeChangeInputPort = 
+              $(go.Node, "Spot",
+                new go.Binding("isShadowed", "isSelected").ofObject(),
+                {
+                  selectionAdorned: false,
+                  shadowOffset: new go.Point(0, 0),
+                  shadowBlur: 15,
+                  shadowColor: "blue",
+                  resizable: true,
+                  resizeObjectName: "SHAPE",
+                  toolTip: sharedToolTip,
+
+                  selectable: false // will be enabled
+                },
+                { name: "PALETTE_MODE_CHANGE_INPUT_PORT", locationSpot: go.Spot.Center },
+                $(go.Shape, "RoundedRectangle",
+                  { fill: $(go.Brush, "Linear", { 0.0: "white", 1.0: "gray" }),
+                    width: 180, height: 55, stroke: "black", strokeWidth: 1,
+                    parameter1: 5,
+                    alignment: new go.Spot(0.5, 0.5),
+                  }),              
+                $(go.Shape, "Rectangle",
+                  { fill: "white", width:20, height:20, alignment: new go.Spot(0.25, 0.5) }),
+                $(go.Shape, "Circle", 
+                  { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.25, 0.5-0.091+0.023+0.138) }),
+                $(go.Shape, "Circle", 
+                  { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.25-0.024, 0.5+0.046+0.023-0.138) }),
+                $(go.Shape, "Circle", 
+                  { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.25+0.024, 0.5+0.046+0.023-0.138) }),
+                $(go.TextBlock, "ModeChange\nInputPort", 
+                  { 
+                    name: "TEXT_NAME",
+                    textAlign: "center",                    
+                    //isStrikethrough: true, // disabled palette
+                    alignment: new go.Spot(0.7, 0.5) }),            
+              );                   
+
+        var paletteTemplate_modeChangeOutputPort = 
+              $(go.Node, "Spot",
+                new go.Binding("isShadowed", "isSelected").ofObject(),
+                {
+                  selectionAdorned: false,
+                  shadowOffset: new go.Point(0, 0),
+                  shadowBlur: 15,
+                  shadowColor: "blue",
+                  resizable: true,
+                  resizeObjectName: "SHAPE",
+                  toolTip: sharedToolTip,
+
+                  selectable: false // will be enabled
+                },
+                { name: "PALETTE_MODE_CHANGE_OUTPUT_PORT", locationSpot: go.Spot.Center },
+                $(go.Shape, "RoundedRectangle",
+                  { fill: $(go.Brush, "Linear", { 0.0: "white", 1.0: "gray" }),
+                    width: 180, height: 55, stroke: "black", strokeWidth: 1,
+                    parameter1: 5,
+                    alignment: new go.Spot(0.5, 0.5),
+                  }),              
+                $(go.Shape, "Rectangle",
+                  { fill: "white", width:20, height:20, alignment: new go.Spot(0.25, 0.5) }),
+                $(go.Shape, "Circle", 
+                  { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.25, 0.5-0.091+0.023) }),
+                $(go.Shape, "Circle", 
+                  { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.25-0.024, 0.5+0.046+0.023) }),
+                $(go.Shape, "Circle", 
+                  { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.25+0.024, 0.5+0.046+0.023) }),
+                $(go.TextBlock, "ModeChange\nOutputPort", 
+                  { 
+                    name: "TEXT_NAME",
+                    textAlign: "center",
+                    //isStrikethrough: true, // disabled palette
+                    alignment: new go.Spot(0.7, 0.5) }),            
+              ); 
+
+        var paletteTemplate_processingComponent =
+              $(go.Group, "Spot",
+                { name: "PALETTE_PROCESSING_COMPONENT", locationSpot: go.Spot.Center },
+                new go.Binding("isShadowed", "isSelected").ofObject(),
+                {
+                  selectionAdorned: false,
+                  shadowOffset: new go.Point(0, 0),
+                  shadowBlur: 15,
+                  shadowColor: "blue",
+                  resizable: true,
+                  resizeObjectName: "SHAPE",
+                  toolTip: sharedToolTip
+                },                
+                $(go.Shape, "RoundedRectangle",
+                  { fill: $(go.Brush, "Linear", { 0.0: "white", 1.0: "gray" }),
+                    width: 180, height: 55, stroke: "black", strokeWidth: 1,
+                    parameter1: 5,
+                    alignment: new go.Spot(0.5, 0.5)
+                  }),              
+                $(go.Shape, "Rectangle",
+                  { fill: "white", width:40, height:40, alignment: new go.Spot(0.25, 0.5) }),
+                $(go.TextBlock, "Processing\nComponent", 
+                  { textAlign: "center",
+                    alignment: new go.Spot(0.7, 0.5) }),              
+              );         
+
+        var paletteTemplate_sourceComponent = 
+              $(go.Node, "Spot",
+                { name: "PALETTE_SOURCE_COMPONENT", locationSpot: go.Spot.Center },
+                new go.Binding("isShadowed", "isSelected").ofObject(),
+                {
+                  selectionAdorned: false,
+                  shadowOffset: new go.Point(0, 0),
+                  shadowBlur: 15,
+                  shadowColor: "blue",
+                  resizable: true,
+                  resizeObjectName: "SHAPE",
+                  toolTip: sharedToolTip
+                },                
+                $(go.Shape, "RoundedRectangle",
+                  { fill: $(go.Brush, "Linear", { 0.0: "white", 1.0: "gray" }),
+                    width: 180, height: 55, stroke: "black", strokeWidth: 1,
+                    parameter1: 5,
+                    alignment: new go.Spot(0.5, 0.5)
+                  }),       
+                $(go.Shape, "Rectangle",
+                  { fill: "white", width:64, height:32, alignment: new go.Spot(0.25, 0.5) }),                  
+                $(go.Shape, "Rectangle",
+                  { fill: "white", width:16, height:16, alignment: new go.Spot(0.428, 0.5) }),
+                $(go.Shape, "TriangleRight", 
+                  { fill: "black", width:8, height:8, alignment: new go.Spot(0.428, 0.5) }),
+                $(go.TextBlock, "Source\nComponent", 
+                  { textAlign: "center",
+                    alignment: new go.Spot(0.7, 0.5) }),      
+              );         
+        
+        var paletteTemplate_sinkComponent =
+              $(go.Node, "Spot",
+                { name: "SINK_COMPONENT", locationSpot: go.Spot.Center },
+                new go.Binding("isShadowed", "isSelected").ofObject(),
+                {
+                  selectionAdorned: false,
+                  shadowOffset: new go.Point(0, 0),
+                  shadowBlur: 15,
+                  shadowColor: "blue",
+                  resizable: true,
+                  resizeObjectName: "SHAPE",
+                  toolTip: sharedToolTip
+                },                
+                $(go.Shape, "RoundedRectangle",
+                  { fill: $(go.Brush, "Linear", { 0.0: "white", 1.0: "gray" }),
+                    width: 180, height: 55, stroke: "black", strokeWidth: 1,
+                    parameter1: 5,
+                    alignment: new go.Spot(0.5, 0.5)
+                  }),       
+                $(go.Shape, "Rectangle",
+                  { fill: "white", width:64, height:32, alignment: new go.Spot(0.284, 0.5) }),                  
+                $(go.Shape, "Rectangle",
+                  { fill: "white", width:16, height:16, alignment: new go.Spot(0.106, 0.5) }),
+                $(go.Shape, "TriangleRight", 
+                  { fill: "black", width: 8, height: 8, alignment: new go.Spot(0.106, 0.5) }),
+                $(go.TextBlock, "Sink\nComponent", 
+                  { textAlign: "center",
+                    alignment: new go.Spot(0.7, 0.5) }),            
+              ); 
+        
+        var paletteTemplate_fusionOperator =
+              $(go.Group, "Spot",
+                { name: "PALETTE_FUSION_COMPONENT", locationSpot: go.Spot.Center },
+                new go.Binding("isShadowed", "isSelected").ofObject(),
+                {
+                  selectionAdorned: false,
+                  shadowOffset: new go.Point(0, 0),
+                  shadowBlur: 15,
+                  shadowColor: "blue",
+                  resizable: true,
+                  resizeObjectName: "SHAPE",
+                  toolTip: sharedToolTip
+                },                
+                $(go.Shape, "RoundedRectangle",
+                  { fill: $(go.Brush, "Linear", { 0.0: "white", 1.0: "gray" }),
+                    width: 180, height: 55, stroke: "black", strokeWidth: 1,
+                    parameter1: 5,
+                    alignment: new go.Spot(0.5, 0.5)
+                  }),              
+                $(go.Shape, "Trapezoid",
+                  { fill: "white", width:40, height:25, angle: 90, alignment: new go.Spot(0.25, 0.5) }),
+                $(go.TextBlock, "Fusion\nComponent", 
+                  { textAlign: "center",
+                    alignment: new go.Spot(0.7, 0.5) }),              
+              );
+        
+        var paletteTemplate_factory =
+              $(go.Group, "Spot",
+                { name: "PALETTE_FACTORY", locationSpot: go.Spot.Center },
+                new go.Binding("isShadowed", "isSelected").ofObject(),
+                {
+                  selectionAdorned: false,
+                  shadowOffset: new go.Point(0, 0),
+                  shadowBlur: 15,
+                  shadowColor: "blue",
+                  resizable: true,
+                  resizeObjectName: "SHAPE",
+                  toolTip: sharedToolTip
+                },
+                $(go.Shape, "RoundedRectangle",
+                  { fill: $(go.Brush, "Linear", { 0.0: "white", 1.0: "gray" }),
+                    width: 180, height: 55, stroke: "black", strokeWidth: 1,
+                    parameter1: 5,
+                    alignment: new go.Spot(0.5, 0.5)
+                  }),              
+                $(go.Shape, "RoundedRectangle",
+                  { fill: "white", width:80, height:40, parameter1: 10, alignment: new go.Spot(0.3, 0.5) }),
+                $(go.TextBlock, "Factory", 
+                  { textAlign: "center",
+                    alignment: new go.Spot(0.7, 0.5) }),              
+              );  
+      }
+      
+      // share the template map with the Palette
+      palette.nodeTemplateMap.add("streamPort", paletteTemplate_streamPort);  
+      palette.nodeTemplateMap.add("eventInputPort", paletteTemplate_eventInputPort);  
+      palette.nodeTemplateMap.add("eventOutputPort", paletteTemplate_eventOutputPort);  
+      palette.nodeTemplateMap.add("modeChangeInputPort", paletteTemplate_modeChangeInputPort); 
+      palette.nodeTemplateMap.add("modeChangeOutputPort", paletteTemplate_modeChangeOutputPort); 
+      palette.groupTemplateMap.add("processingComponent", paletteTemplate_processingComponent);  
+      palette.groupTemplateMap.add("sourceComponent", paletteTemplate_sourceComponent);   
+      palette.groupTemplateMap.add("sinkComponent", paletteTemplate_sinkComponent);   
+      palette.groupTemplateMap.add("fusionOperator", paletteTemplate_fusionOperator); 
+      palette.groupTemplateMap.add("factory", paletteTemplate_factory);
+      
+      palette.layout = $(go.GridLayout, { alignment: go.GridLayout.Location, spacing: new go.Size(5,8)});
+
+      palette.model.makeUniqueKeyFunction = setKeyUUID;
+      palette.maxSelectionCount = 1;
+      
+      palette.model.nodeDataArray = [
+        { category: "streamPort" },
+        { category: "eventInputPort" },
+        { category: "eventOutputPort" },
+        { category: "modeChangeInputPort" },
+        { category: "modeChangeOutputPort" },
+        { category: "processingComponent", "isGroup": true },  
+        { category: "sourceComponent", "isGroup": true},
+        { category: "sinkComponent", "isGroup": true },
+        { category: "fusionOperator", "isGroup": true },
+        { category: "factory", "isGroup": true },
+        
+      ];
+  
+    function setKeyUUID(model, data) {
+      //console.log("NEW setKeyUUID");
+      if (data.key === undefined || model.findNodeDataForKey(data.key) !== null) {
+        //console.log("YES NEW KEY");
+        var new_key = createKeyUUID();
+        return new_key
+      } else {
+        console.log("else?");
+      }
+    }
+    
+       // inspector code
+    {
+      function getCurrentObjectName() {
+        if(externalDroppedObjectName === "NONE") {
+          return internalSelectedObjectName;
+        } else {
+          return externalDroppedObjectName;
+        }
+      }
+      
+      function isProcessingComponent() {
+        var currentObjectName = getCurrentObjectName();
+        return (currentObjectName === "PROCESSING" ? true : false);
+      }
+
+      function isSourceComponent() {
+        var currentObjectName = getCurrentObjectName();
+        return (currentObjectName === "SOURCE" ? true : false);
+      }
+
+      function isSinkComponent() {
+        var currentObjectName = getCurrentObjectName();
+        return (currentObjectName === "SINK" ? true : false);
+      }
+      
+      function isStreamInputPort() {
+        var currentObjectName = getCurrentObjectName();
+        return (currentObjectName === "STREAM_INPUT_PORT" ? true : false);
+      }
+
+      function isStreamOutputPort() {
+        var currentObjectName = getCurrentObjectName();
+        return (currentObjectName === "STREAM_OUTPUT_PORT" ? true : false);
+      }
+      
+      function isStreamDelegationPort() {
+        var currentObjectName = getCurrentObjectName();
+        return (currentObjectName === "STREAM_DELEGATION_PORT" ? true : false);
+      }
+      
+      function isFusionOperator() {
+        var currentObjectName = getCurrentObjectName();
+        return (currentObjectName === "FUSION" ? true : false);
+      }
+      
+      function isFactory() {
+        var currentObjectName = getCurrentObjectName();
+        return (currentObjectName === "FACTORY" ? true : false);
+      }
+
+      function isStreamPort() {
+        return (isStreamInputPort() || isStreamOutputPort() || isStreamDelegationPort()); 
+      }
+
+      function isChannel(part) {
+        return part instanceof go.Link;
+      }
+
+      function hasDataType(part) {
+        return (isStreamPort() || isChannel(part));
+      }
+
+      function hasFreshness() {
+        return isSourceComponent();
+      }
+      
+      function hasRate() {
+        return (isStreamOutputPort()||isStreamDelegationPort());
+      }
+      
+      function hasCorrelation() {
+        return isFusionOperator();
+      }
+
+      function canResize() {
+      	return (isProcessingComponent() || isFactory() || isFusionOperator());
+      }
+
+      function isComponent() {
+        return (isProcessingComponent() || isSourceComponent() || isSinkComponent() || isFusionOperator() || isFactory());
+      }
+
+      function isNotComponent() {
+        return !isComponent();
+      }
+
+      var inspector = new Inspector('splashInspectorDiv', myDiagram,
+        {
+
+          // uncomment this line to only inspect the named properties below instead of all properties on each object:
+          includesOwnProperties: false,
+          properties: {
+            "NAME": {},
+
+            "BuildUnit": {readOnly: isNotComponent},
+            "DataType": {readOnly: isChannel, show: hasDataType},
+
+            "Freshness": {show: hasFreshness, type: "number"},
+            "Rate": {show: hasRate, type: "number"},
+            "Correlation": {show: hasCorrelation, type: "number"},
+
+
+
+            "COMMENTS": {},              
+          }
+        });
+
+      
+      var inspector2 = new Inspector('splashInspectorDiv2', myDiagram,
+        {
+          // uncomment this line to only inspect the named properties below instead of all properties on each object:
+          includesOwnProperties: false,
+          properties: {
+            "category": {readOnly: true},            
+            "PORT_TYPE": {readOnly: true,  show: isStreamPort },
+            "key": { readOnly: true, show: Inspector.showIfPresent },
+            "group": { readOnly: true, show: Inspector.showIfNode },
+            "isGroup": { show: false },
+
+            "loc": {},
+            "WIDTH": { show: canResize },
+            "HEIGHT": { show: canResize } ,
+
+            "to": { readOnly: true, show: Inspector.showIfPresent},
+            "from": { readOnly: true, show: Inspector.showIfPresent},
+            "segArray" : { show: Inspector.showIfLink },
+          }
+        });
+      
+    }
+    
+    var openFile;
+    function handleOpenFile(evt) {
+      openFile = evt.target.files[0]; // a file object
+
+      var readString;
+
+      var reader = new FileReader();
+      reader.onload = function(event) {
+          //console.log('File content:', event.target.result);
+          readString = event.target.result.substring(0);
+          myDiagram.model = go.Model.fromJson(readString);
+          console.log(readString.linkDataArray);
+          console.log("OPEN?"+readString);
+      };
+      reader.readAsText(openFile);
+      var fileName = openFile.name.substring(0,openFile.name.length-5);
+
+      setCurrentFileName(fileName);
+
+
+
+      forceSelectTab('SchematicTab');      
+    }
+              
+    // the Overview
+    myOverview =
+      $(go.Overview, "overviewDiv",
+        { observed: myDiagram, maxScale: 0.5 });
+        // change color of viewport border in Overview
+    myOverview.box.elt(0).stroke = "dodgerblue";
+    
+    
+    startLogConsole();
+    
+   
+    //newDocument();
+    
+    // continually update the diagram
+    document.getElementById("fileOpenMenu").addEventListener("change", handleOpenFile, false);
+
+    loop();  
+      
+      
+      
+      
+      
+    } // end of init()
+    
+    
+    function notAssigned_buildUnit(BuildUnit) {
+      if(BuildUnit === undefined || BuildUnit === "") return true;
+    }
+
+    // enable or disable a particular button
+    function enable(name, ok) {
+      var button = document.getElementById(name);
+      if (button) button.disabled = !ok;
+    }
+    
+    function enableAll() {
+      var cmdhnd = myDiagram.commandHandler;
+/*      enable("Rename", myDiagram.selection.count > 0);
+      enable("Undo", cmdhnd.canUndo());
+      enable("Redo", cmdhnd.canRedo());
+      enable("Cut", cmdhnd.canCutSelection());
+      enable("Copy", cmdhnd.canCopySelection());
+      enable("Paste", cmdhnd.canPasteSelection());
+      enable("Delete", cmdhnd.canDeleteSelection());
+      enable("SelectAll", cmdhnd.canSelectAll());
+      enable("AlignLeft", cmdhnd.canAlignSelection());
+      enable("AlignRight", cmdhnd.canAlignSelection());
+      enable("AlignTop", cmdhnd.canAlignSelection());
+      enable("AlignBottom", cmdhnd.canAlignSelection());
+      enable("AlignCenterX", cmdhnd.canAlignSelection());
+      enable("AlignCenterY", cmdhnd.canAlignSelection());
+      enable("AlignRow", cmdhnd.canAlignSelection());
+      enable("AlignColumn", cmdhnd.canAlignSelection());
+      enable("AlignGrid", cmdhnd.canAlignSelection());
+      enable("Rotate45", cmdhnd.canRotate(45));
+      enable("Rotate_45", cmdhnd.canRotate(-45));
+      enable("Rotate90", cmdhnd.canRotate(90));
+      enable("Rotate_90", cmdhnd.canRotate(-90));
+      enable("Rotate180", cmdhnd.canRotate(180));*/
+    }
+    
+    
+/*    function askSpace() {
+      var space = alert("Desired space between nodes (in pixels):", "0");
+      return space;
+    }
+    */
+    
+
+
+
+    
+    // update the diagram every 250 milliseconds
+    function loop() {
+      setTimeout(function() { 
+        document.getElementById("programTitle").innerHTML 
+          = document.getElementById("currentFile").innerHTML
+            + "\xa0\xa0\xa0-\xa0\xa0\xa0"
+            + document.getElementById("programName").innerHTML
+            + "\xa0\xa0"
+            + document.getElementById("version").innerHTML;
+        updateStates(); 
+        loop(); 
+      }, 250);
+    }
+    // update the value and appearance of each node according to its type and input values
+    function updateStates() {
+      var oldskip = myDiagram.skipsUndoManager;
+      myDiagram.skipsUndoManager = true;
+      // do all "input" nodes first
+      myDiagram.nodes.each(function(node) {
+        if (node.category === "input") {
+          doInput(node);
+        }
+      });
+      // now we can do all other kinds of nodes
+      myDiagram.nodes.each(function(node) {
+        switch (node.category) {
+          case "and": doAnd(node); break;
+          case "or": doOr(node); break;
+          case "xor": doXor(node); break;
+          case "not": doNot(node); break;
+          case "nand": doNand(node); break;
+          case "nor": doNor(node); break;
+          case "xnor": doXnor(node); break;
+          case "output": doOutput(node); break;
+          case "input": break;  // doInput already called, above
+        }
+      });
+      myDiagram.skipsUndoManager = oldskip;
+    }
+    // // helper predicate
+    // function linkIsTrue(link) {  // assume the given Link has a Shape named "SHAPE"
+    //   return link.findObject("SHAPE").stroke === green;
+    // }
+    // // helper function for propagating results
+    // function setOutputLinks(node, color) {
+    //   node.findLinksOutOf().each(function(link) { link.findObject("SHAPE").stroke = color; });
+    // }
+    
+   
+    // shows/hides gridlines
+    // to be implemented onclick of a button
+    function updateGridOption() {
+      myDiagram.startTransaction("grid");
+      var grid = document.getElementById("grid");
+      myDiagram.grid.visible = (grid.checked === true);
+      myDiagram.commitTransaction("grid");
+    }
+
+    // enables/disables guidelines when dragging
+    function updateGuidelinesOption() {
+      // no transaction needed, because we are modifying a tool for future use
+      var guide = document.getElementById("guidelines")
+      if (guide.checked === true) {
+        myDiagram.toolManager.draggingTool.isGuidelineEnabled = true;
+      } else {
+        myDiagram.toolManager.draggingTool.isGuidelineEnabled = false;
+      }
+    }
+    
+
+  $(function() {
+    var firstTime = true;
+    $("#tabs").tabs({
+      activate: function(event, ui) {
+        // Needed the first time you tab to a tab with a Diagram in it,
+        // because the diagram in the tab had zero size while initializing:
+        if (firstTime) {
+          myDiagram.delayInitialization(function() { myDiagram.requestUpdate(); });
+          firstTime = false;
+        }
+        // every time after you need nothing, or in case the Diagram div changed size, this:
+        myDiagram.requestUpdate();
+      }
+    });
+    console.log("call init()");
+    init();    
+  });  
+
+
+  </script>
+  
+  <script>
+    function updateProperty() {
+      myDiagram.selection.each(function(part) {
+        // 1. relocatePort(part)
+        var it_memberParts;
+        var memeber_port;
+
+        if(part.name == "SOURCE") {
+          it_memberParts = part.memberParts;
+          memeber_port = it_memberParts.first()
+
+          memeber_port.location = new go.Point(part.location.x+30, part.location.y-part.actualBounds.height/2+10);
+          console.log(memeber_port.location);
+
+        } else if(part.name == "SINK") {
+          it_memberParts = part.memberParts;
+          memeber_port = it_memberParts.first()
+
+          memeber_port.location = new go.Point(part.location.x-50, part.location.y-part.actualBounds.height/2+10);
+
+        } else {}
+
+        // 2. inheritBuildUnit(part)
+
+
+      });
+
+
+
+      addLog("Update property");
+    }
+
+    function checkSyntax_buildUnit() {
+      var isPass = true;
+      myDiagram.nodes.each(function(node){
+        // 1. atomic component
+        if(node.name === "SOURCE"
+        || node.name === "SINK"
+        || node.name === "PROCESSING"
+        || node.name === "FUSION") {
+          // 1-1. Not assigned
+
+          if(notAssigned_buildUnit(node.data.BuildUnit)) {
+            isPass = false;
+            addLog("[SYNTAX ERROR (BuildUnit)] "
+              +"Atomic component :"+node.key+"("+node.data.BuildUnit+") "
+              +"is not assigned.");
+          } // 1-2. Incompatible with the superset factory
+          else if(node.containingGroup !== null) {
+            if(node.data.BuildUnit !== node.containingGroup.data.BuildUnit
+              && !notAssigned_buildUnit(node.containingGroup.data.BuildUnit)) { 
+              if(node.containingGroup.data.BuildUnit != "") {
+                isPass = false;
+                addLog("[SYNTAX ERROR (BuildUnit)] "
+                  +"Atomic component "+node.key+"("+node.data.BuildUnit+") and "
+                  +"factory "+node.containingGroup.key+"("+node.containingGroup.data.BuildUnit+") "
+                  +"are incompatible.");
+              }
+            }
+          }
+          else if(node.containingGroup === null) {
+            if(node.name === "PROCESSING" || node.name === "FUSION") {
+              isPass = false;
+              addLog("[SYNTAX ERROR (BuildUnit)] "
+                +"Atomic component: "+node.key+" cannot exist independently");
+            }
+          }
+
+        }
+        // 2. factory
+        else if(node.name === "FACTORY") {
+          // Incompatible with the superset factory
+          if(node.containingGroup !== null) {
+            if(node.data.BuildUnit !== node.containingGroup.data.BuildUnit
+              && !notAssigned_buildUnit(node.containingGroup.data.BuildUnit)) { 
+              if(node.containingGroup.data.BuildUnit != "") {
+                isPass = false;
+                addLog("[SYNTAX ERROR (BuildUnit)] "
+                  +"Factory "+node.key+"("+node.data.BuildUnit+") and "
+                  +"factory "+node.containingGroup.key+"("+node.containingGroup.data.BuildUnit+") "
+                  +"are incompatible.");
+              }
+            }
+          }
+        }
+        // 3. port
+        else {
+          // 3-1. Not assgined 
+          if(notAssigned_buildUnit(node.data.BuildUnit)) {
+            if(node.containingGroup.name === "FACTORY") {               
+              if(!notAssigned_buildUnit(node.containingGroup.data.BuildUnit)) {
+                isPass = false;
+                addLog("[SYNTAX ERROR (BuildUnit)] "
+                  +"Port :"+node.key+"("+node.data.BuildUnit+") "
+                  +"is not assigned.");
+              }
+            } else {
+              isPass = false;
+              addLog("[SYNTAX ERROR (BuildUnit)] "
+                +"Port :"+node.key+"("+node.data.BuildUnit+") "
+                +"is not assigned.");
+            }
+          }
+          // 3-2. Incompatible with the superset component
+          if(node.containingGroup !== null) {
+            if(node.data.BuildUnit !== node.containingGroup.data.BuildUnit
+              && !notAssigned_buildUnit(node.containingGroup.data.BuildUnit)) { 
+              if(node.containingGroup.data.BuildUnit != "") {
+                isPass = false;
+                addLog("[SYNTAX ERROR (BuildUnit)] "
+                  +"Port "+node.key+"("+node.data.BuildUnit+") and "
+                  +"component "+node.containingGroup.key+"("+node.containingGroup.data.BuildUnit+") "
+                  +"are incompatible.");
+              }
+            }
+          } else {
+            isPass = false;
+            addLog("[SYNTAX ERROR (BuildUnit)] "
+              +"Port: "+node.key+" cannot exist independently");
+          }
+        }
+      });
+
+      // 4. channel
+      myDiagram.links.each(function(link){
+        if(link.fromNode.data.BuildUnit === link.toNode.data.BuildUnit
+          && !notAssigned_buildUnit(link.fromNode.data.BuildUnit)
+          && !notAssigned_buildUnit(link.toNode.data.BuildUnit)) {
+          if(link.data.BuildUnit !== link.fromNode.data.BuildUnit) {
+            isPass = false;
+            addLog("[SYNTAX ERROR (BuildUnit)] "
+              +"Channel: "
+              +"from port"+link.fromNode.key+"("+link.fromNode.data.BuildUnit+") and "
+              +"to port"+link.toNode.key+"("+link.toNode.data.BuildUnit+") "
+              +"are in the same build unit, but the build unit of channel is incompatible.");
+          }
+        }
+      });
+      if(isPass) {
+        //addLog("Pass the build unit syntax check (1 of 2): individual check");
+        addLog("Compelete the build unit syntax check");
+      }
+      else {
+        addLog("Fail to pass the build unit syntax check");
+        //addLog("Fail to pass the build unit syntax check (1 of 2): individual check");
+        //addLog("Stop the build unit syntax check (1 of 2): individual check");
+        return;
+      }
+
+      /*
+      // 5. inside of each bulid unit
+      isPass = true;
+      // 5-1. make reference array for each build nuit
+      var tupleArray_reference = []; // (component itself, the containing factory, isPass)
+      myDiagram.nodes.each(function(node){
+        if(node.name === "SOURCE"
+        || node.name === "SINK"
+        || node.name === "PROCESSING"
+        || node.name === "FUSION"
+        || node.name === "FACTORY") {    
+          var tupleObject = new Object();   
+          tupleObject.cmp = node;
+          tupleObject.fac = node.containingGroup;
+          tupleObject.pass = true;
+
+          // already_registered is undefined or true
+          var already_registered = false;
+          already_registered = tupleArray_reference.find(function(element){
+            if(node.data.BuildUnit === element.cmp.data.BuildUnit) return true;
+          });
+          if(!already_registered && !notAssigned_buildUnit(node.data.BuildUnit)) {
+            console.log("New reference!: "+node.key);
+            tupleArray_reference.push(tupleObject);
+          }
+        }
+      });
+
+      // 5-2. Case-by-case check
+      myDiagram.nodes.each(function(node){
+        if(node.name === "SOURCE"
+        || node.name === "SINK"
+        || node.name === "PROCESSING"
+        || node.name === "FUSION") {
+          tupleArray_reference.find(function(element){
+            // 5-2-1. AC-AC
+            if(element.cmp.name === "SOURCE"
+            || element.cmp.name === "SINK"
+            || element.cmp.name === "PROCESSING"
+            || element.cmp.name === "FUSION") {
+              //console.log("AC-AC " + element.cmp.name);
+              if(node.data.BuildUnit === element.cmp.data.BuildUnit) {
+                if(node.containingGroup !== element.fac) {
+                  if(notAssigned_buildUnit(node.containingGroup.data.BuildUnit)
+                    || notAssigned_buildUnit(element.fac.data.BuildUnit)) {
+                    console.log("a syntax error is founded!");
+                    element.pass = false;
+                  }
+                }
+              }
+            } // 5-2-2. AC-FC
+            else if (element.cmp.name === "FACTORY") {
+              //console.log("AC-FC " + element.cmp.name);
+              if(node.data.BuildUnit === element.cmp.data.BuildUnit) {
+                if(element.fac !== null) {
+                  if(node.containingGroup !== element.fac) {
+                    if(notAssigned_buildUnit(node.containingGroup.data.BuildUnit)
+                      || notAssigned_buildUnit(element.fac.data.BuildUnit)) {
+                      console.log("a syntax error is founded!");
+                      element.pass = false;
+                    }
+                  }
+                }
+              }
+            }                            
+          });
+        } 
+        else if(node.name === "FACTORY") {
+          tupleArray_reference.find(function(element){
+            // 5-2-2. FC-AC
+            if(element.cmp.name === "SOURCE"
+            || element.cmp.name === "SINK"
+            || element.cmp.name === "PROCESSING"
+            || element.cmp.name === "FUSION") {
+              //console.log("FC-AC " + element.cmp.name);
+              if(node.data.BuildUnit === element.cmp.data.BuildUnit) {
+                if(node.containingGroup !== null) {
+                  if(node.containingGroup !== element.fac) {
+                    if(notAssigned_buildUnit(node.containingGroup.data.BuildUnit)
+                      || notAssigned_buildUnit(element.fac.data.BuildUnit)) {
+                      console.log("a syntax error is founded!");
+                      element.pass = false;
+                    }
+                  }
+                }
+              }
+            } // 5-2-3. FC-FC 
+            else if (element.cmp.name === "FACTORY") {
+              console.log("FC-FC " + element.cmp.name);
+              if(!notAssigned_buildUnit(node.data.BuildUnit) && (node.containingGroup === element.cmp)) {
+                console.log("ok!");
+                //ok;
+              } else if(!notAssigned_buildUnit(element.cmp.data.BuildUnit) && (node === element.fac)) {
+                console.log("ok!");
+                //ok;
+              } else {
+                if(node.data.BuildUnit === element.cmp.data.BuildUnit) {
+                  if(node.containingGroup === null && element.fac !== null) {
+                    if(notAssigned_buildUnit(element.fac.data.BuildUnit)) element.pass = false;
+                    else { // this is tricky case
+                      if(element.fac.containingGroup !== null) {
+                        if(notAssigned_buildUnit(element.fac.containingGroup.data.BuildUnit)) element.pass = false;
+                      }
+                    }
+                  } else if(element.fac === null && node.containingGroup !== null) {
+                    if(notAssigned_buildUnit(node.containingGroup.data.BuildUnit)) element.pass = false;
+                    else { // this is tricky case
+                      if(node.containingGroup.containingGroup !== null) {
+                        if(notAssigned_buildUnit(node.containingGroup.containingGroup.data.BuildUnit)) element.pass = false;
+                      }
+                    }
+                  } else {
+                    if(node.containingGroup !== element.fac) {
+                      if(notAssigned_buildUnit(node.containingGroup.data.BuildUnit)
+                        || notAssigned_buildUnit(element.fac.data.BuildUnit)) {
+                        element.pass = false;
+                      }
+                    }                    
+                  }                
+                }
+              }
+            }
+          });
+        }                           
+      });
+
+      tupleArray_reference.find(function(element){
+        if(!element.pass) {
+          isPass = false;
+          addLog("[SYNTAX ERROR (BuildUnit)] Components in the BuildUnit "
+            + element.cmp.data.BuildUnit
+            + " are incompatible");
+        }
+      });
+
+      console.log(tupleArray_reference);
+      if(isPass) {
+        addLog("Pass the build unit syntax check (2 of 2): compatibility check");
+        addLog("Compelete the build unit syntax check");
+      }
+      else {        
+        addLog("Fail to pass the build unit syntax check (2 of 2): compatibility check");
+        addLog("Stop the build unit syntax check (2 of 2): compatibility check");
+        return;
+      }
+      */
+
+    }
+  </script>
+
+
+  <script>
+  
+    var splash_logArray= ["---------------RTOS Splash Schematic Editor--------------"];
+    
+    function logConsole() {
+      document.getElementById("splash_logConsol").innerHTML = splash_logArray;
+    }
+    
+    function addLog(string_log) {
+      var d = new Date();    
+      splash_logArray.push("[" + d.toISOString() + "] " + string_log);
+      updateLog();
+    }
+    
+    function startLogConsole() {
+      var d = new Date(); 
+      var textarea = document.getElementById("splash_logConsol");
+      textarea.innerHTML = splash_logArray + "\n";
+      
+      var startLog = "Start the program"
+      
+      splash_logArray.push("[" + d.toISOString() + "] " + startLog);   
+      updateLog();
+    }
+    
+    function updateLog() {
+      var textarea = document.getElementById("splash_logConsol");
+      textarea.innerHTML += splash_logArray[splash_logArray.length-1] + "\n";
+      textarea.scrollTop = textarea.scrollHeight;
+    }
+    
+    function createKeyUUID() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });       
+    }
+    
+    function newDocument() {
+      var curFile = document.getElementById("currentFile");
+      var curFileName = curFile.textContent.substring(0);
+
+      if (myDiagram.isModified) {
+        var save = confirm("Would you like to save changes to " + curFileName + "?");
+        if (save) {
+          saveDocument();
+        }
+      }
+      setCurrentFileName(UnsavedFileName);
+
+      // loads an empty diagram
+      myDiagram.model = new go.GraphLinksModel();
+      myDiagram.undoManager.isEnabled = true;
+      myDiagram.addModelChangedListener(function(e) {
+        if (e.isTransactionFinished) enableAll();
+      });
+      curFile.textContent = "(NEW_FILENAME)";
+      myDiagram.isModified = false;
+    }
+
+    function openDocument() {
+      var curFile = document.getElementById("currentFile");
+      var curFileName = curFile.textContent.substring(0);
+
+      if (myDiagram.isModified) {
+        var save = confirm("Would you like to save changes to " + curFileName + "?");
+        if (save) {
+          saveDocument();
+        }
+      }
+      $("#fileOpenMenu").trigger("click");
+    }
+
+
+    function saveDocument() {
+      var saveName = getCurrentFileName();
+      if (saveName === UnsavedFileName) {
+        saveAsDocument();0
+      } else {
+        setCurrentFileName(saveName);      
+        var currentModel = myDiagram.model.toJson();
+        myDiagram.isModified = false;
+
+        var blob = new Blob([currentModel], {type: "application/json"});
+        saveAs(blob, getCurrentFileName()+".json");
+      }
+    }
+
+    function saveAsDocument() {
+      var saveName = prompt("Save file as...", getCurrentFileName());
+
+      if (saveName && saveName !== UnsavedFileName) {
+        setCurrentFileName(saveName);      
+        var currentModel = myDiagram.model.toJson();
+        myDiagram.isModified = false;
+
+        var blob = new Blob([currentModel], {type: "application/json"});
+        saveAs(blob, getCurrentFileName()+".json");
+      }
+    }
+
+    // enables/disables snapping tools, to be implemented by buttons
+    function updateSnapOption() {
+      // no transaction needed, because we are modifying tools for future use
+      var snap = document.getElementById("snap");
+      if (snap.checked === true) {
+        myDiagram.toolManager.draggingTool.isGridSnapEnabled = true;
+        myDiagram.toolManager.resizingTool.isGridSnapEnabled = true;
+      } else {
+        myDiagram.toolManager.draggingTool.isGridSnapEnabled = false;
+        myDiagram.toolManager.resizingTool.isGridSnapEnabled = false;
+      }
+    }
+
+
+
+    var UnsavedFileName = "(NEW_FILENAME)";
+
+    function getCurrentFileName() {
+      var currentFile = document.getElementById("currentFile");
+      var name = currentFile.textContent;
+      if (name[name.length - 1] === "*") return name.substr(0, name.length - 1);
+      return name;
+    }
+
+    function setCurrentFileName(name) {
+      var currentFile = document.getElementById("currentFile");
+      if (myDiagram.isModified) {
+        name += "*";
+      }
+      currentFile.textContent = name;
+    }
+
+  </script>
+
+
+  <script>
+  var about = document.getElementById("devInfo");
+  //var btn = document.getElementById("aboutMenu");
+  var span = document.getElementsByClassName("closeAboutBox")[0];
+
+  function developmentInfo() {
+   document.getElementById("devInfo").style.display = "block";
+   //addLog("Open aboutMenu");
+  }
+
+  function aboutClose() {
+    document.getElementById("devInfo").style.display = "none";
+  }
+
+  window.onclick = function(event) {
+    if (event.target == document.getElementById("devInfo")) {
+      document.getElementById("devInfo").style.display = "none";
+    }
+  }
+
+  </script>
+  
+<script>
+  window.onbeforeunload = function() {  
+    return true;
+  }
+</script>
+
+
+<script>
+  function openTab(evt, tabName) {
+    var i, tabcontent, tablinks;
+    tabcontent = document.getElementsByClassName("tabcontent");
+    for (i = 0; i < tabcontent.length; i++) {
+      tabcontent[i].style.display = "none";
+    }
+    tablinks = document.getElementsByClassName("tablinks");
+    for (i = 0; i < tablinks.length; i++) {
+      tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+    document.getElementById(tabName).style.display = "block";
+    evt.currentTarget.className += " active";
+
+    updateJsonViewer();
+  }
+
+  function updateJsonViewer() {
+    var currentModel = myDiagram.model.toJson();
+    document.getElementById("jsonViewer").innerHTML = currentModel;
+  }
+
+  function forceSelectTab(tabName) {
+    var i, tabcontent, tablinks;
+    tabcontent = document.getElementsByClassName("tabcontent");
+    for (i = 0; i < tabcontent.length; i++) {
+      tabcontent[i].style.display = "none";
+    }
+    tablinks = document.getElementsByClassName("tablinks");
+    for (i = 0; i < tablinks.length; i++) {
+      tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+    document.getElementById(tabName).style.display = "block";
+
+    var buttonID = tabName.replace("Tab","Button");
+    document.getElementById(buttonID).className += " active";
+
+    console.log("forceSelectTab");
+  }
+</script>
+
+</head>
+  <body style="margin-top: 0">
+  <div class="container">
+    <div id="programTitle"></div>
+    <div id="programName" style="display:none">RTOS Splash Schematic Editor</div>
+    <div id="currentFile" style="display:none">(NEW_FILENAME)</div>
+    <div id="version" style="display:none">v0.6.3</div>
+    	<div id="menuBar">
+      <ul id="nav">
+        <li><a href="#">File</a>
+          <ul>
+            <li><a href="#" onclick="newDocument()">New</a></li>
+            <li>
+            	<input id="fileOpenMenu" type="file" accept=".json" name="files[]" style="display:none"/>
+              <a href="#" onclick="openDocument()" >Open</a>
+            </li>
+            <li><a href="#" onclick="saveDocument()">Save (Download)</a></li>
+            <li>
+              <output id="fileSaveAsMenu" download="data.json" type="file"/>
+              <a href="#" onclick="saveAsDocument()">Save As (Download As) </a>
+            </li>
+          </ul>
+        </li>
+        <li><a href="#">Edit</a>
+          <ul>
+<!--             <li><a id="Rename" href="#" onclick="rename()">Rename</a></li>
+            <li><a id="A1" href="#" onclick="myDiagram.commandHandler.undo()">Undo</a></li>
+            <li><a id="Redo" href="#" onclick="myDiagram.commandHandler.redo()">Redo</a></li>
+            <li><a id="Cut" href="#" onclick="myDiagram.commandHandler.cutSelection()">Cut</a></li>
+            <li><a id="Copy" href="#" onclick="myDiagram.commandHandler.copySelection()">Copy</a></li>
+            <li><a id="Paste" href="#" onclick="myDiagram.commandHandler.pasteSelection()">Paste</a></li>
+            <li><a id="Delete" href="#" onclick="myDiagram.commandHandler.deleteSelection()">Delete</a></li>
+            <li><a id="SelectAll" href="#" onclick="myDiagram.commandHandler.selectAll()">Select All</a></li> -->
+          </ul>
+        </li>
+        <li><a href="#">Align</a>
+          <ul >
+<!--             <li><a id="AlignLeft" href="#" onclick="myDiagram.commandHandler.alignLeft()">Left Sides</a></li>
+            <li><a id="AlignRight" href="#" onclick="myDiagram.commandHandler.alignRight()">Right Sides</a></li>
+            <li><a id="AlignTop" href="#" onclick="myDiagram.commandHandler.alignTop()">Tops</a></li>
+            <li><a id="AlignBottom" href="#" onclick="myDiagram.commandHandler.alignBottom()">Bottoms</a></li>
+            <li><a id="AlignCenterX" href="#" onclick="myDiagram.commandHandler.alignCenterX()">Center X</a></li>
+            <li><a id="AlignCenterY" href="#" onclick="myDiagram.commandHandler.alignCenterY()">Center Y</a></li> -->
+          </ul>
+        </li>
+
+        <li><a href="#">Syntax</a>
+          <ul >
+            <li><a id="SyntaxBuildUnit" href="#" onclick="checkSyntax_buildUnit()">Build Unit</a></li>
+          </ul>
+        </li>
+
+        <li><a href="#">Options</a>
+          <ul>
+            <li><a href="#"><input id="grid" type="checkbox" name="options" value="grid" checked="checked" onclick="updateGridOption()">Grid</a></li>
+            <li><a href="#"><input id="guidelines" type="checkbox" name="options" value="0" checked="checked" onclick="updateGuidelinesOption()">Guidelines</a></li>
+            <li><a href="#"><input id="snap" type="checkbox" name="options" value="0" checked="checked" onclick="updateSnapOption()">Snapping</a></li>
+<!--             <li><a href="#">Arrow Keys >></a>
+              <form >
+                <ul>
+                  <li><a href="#"><input type="radio" name="arrow" id="move" onclick="arrowMode()" checked="checked">Move</a></li>
+                  <li><a href="#"><input type="radio" name="arrow" id="select" onclick="arrowMode()">Select</a></li>
+                  <li><a href="#"><input type="radio" name="arrow" id="scroll" onclick="arrowMode()">Scroll</a></li>
+                </ul>
+              </form>
+            </li> -->
+          </ul>
+        </li>
+        <li><a href="#">Help</a>
+          <ul >
+            <li><a id="aboutMenu" href="#" onclick="developmentInfo()">About</a></li>
+          </ul>
+        </li>
+      </ul>
+    </div><!--END menu bar -->
+  </div>
+  
+  <div id="devInfo" class="aboutBox">
+    <div class="aboutBox-content">      
+      <span class="closeAboutBox" onclick="aboutClose()">&times;</span>
+      <h1>RTOS Splash Schematic Editor</h1>
+      <hr>
+      <a>
+        &emsp; A graphical programming framework named <splashHighlight>Splash</splashHighlight> that explicitly addresses the programming challenges that arise during the development of an autonomous machine. We set four design goals to solve these challenges. First, Splash must provide an effective programming abstraction that supports the stream processing of an autonomous machine. Second, it must enable programmers to specify genuine, end-to-end timing constraints and monitor the violation of such constraints. Third, it must support exception handling, mode change and sensor fusion. Finally, it must support performance optimization and tuning during system implementation[1].        
+      </a>
+      <br></br>
+      <div style="text-align:center">
+        <img id="logo_rtoslab" alt="rtoslab logo" src="../image/rtoslab_logo.png">
+        <img id="logo_splash" alt="splash logo" src="../image/splash1-14.png">
+      </div>
+
+      <hr>
+      <a style="font-size: 13px">
+        [1] Soonhyun Noh and Seongsoo Hong, "Splash: A Graphical Programming Framework for an Autonomous Machine," The 16th International Conference on Ubiquitous Robots (UR 2019) , pp. 660-666, Jun 2019
+      </a>
+      <a href="http://redwood.snu.ac.kr" target="_blank">
+        <p>http://redwood.snu.ac.kr</p>
+      </a>
+    </div>
+  </div>
+
+  <div id="SchematicTab" class="tabcontent" style="display:block; padding: 0px">
+    <div id="CanvasAndSidebar" style="width: 100%; height: 645px; display: flex;  justify-content: space-between;">
+      <div id="SplashCanvas" style="padding: 0px"></div>
+      <div id="sidebar">
+        <div class="sidebar__inner">
+          <div id="palette"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="JsonTab" class="tabcontent" style="padding: 0px; height: 645px;" >
+    <textarea readonly id="jsonViewer" style="width: 100%; height: 645px;resize: none; ">
+    </textarea>
+  </div>
+
+  <div class="tab">
+    <button id="SchematicButton" class="tablinks active" onclick="openTab(event, 'SchematicTab')">Schematic</button>
+    <button id="JsonButton" class="tablinks" onclick="openTab(event, 'JsonTab')">Json</button>
+  </div>
+
+
+  <div class="container clearfix">
+    <div id="OverallPanel" style="width: 100%; position: relative; overflow: hidden;">
+
+      <div id="infoPanel" style="width: 100%; height: 20%; display: flex; justify-content: space-between">
+        <div id="consolePanel" style="float:left; width: 40%; height: 100%; min-height: 200px; text-align:center;">
+          <div class="handle">Log Console</div>
+          <textarea readonly id="splash_logConsol" style="width: 100%; height: 200px; resize: none;"></textarea>
+        </div>
+        <div id="propertyPanel" style="float:left; width: 40%; height: 100%; min-height: 200px; text-align:center;">
+          <div class="handle">Property</div>
+          <div id="propertyTextField">
+            <div id="BasicProperty" style="float:left; width: 50%; height: 100%; min-height: 170px; text-align:center;">
+              <div class="handle">Language Construct Attribute</div>
+              <div id="splashInspectorDiv" class="inspector" style="width: 100%; height: 150px; resize: none; overflow-y: scroll;"></div>
+            </div>
+            <div id="ConstraintsProperty" style="float:left; width: 50%; height: 100%; min-height: 170px; text-align:center;">
+              <div class="handle">Node/Link Property</div>
+              <div id="splashInspectorDiv2" class="inspector" style="width: 100%; height: 150px; resize: none; overflow-y: scroll;"></div>             
+            </div> 
+          </div>
+          <button type="button" onclick="updateProperty()" style="width: 100%; height: 28px; ">Comfirm</button>
+        </div>
+
+        <div id="overviewPanel" style="float:right; width: 20%; height: 100%; min-height: 200px; text-align:center;">
+          <div class="handle">Overview</div>
+          <div id="overviewDiv" style="border:solid 1px gray; width: 100%; height:200px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>  
+  
+  <!-- <script type="text/javascript"> -->
+      <!-- var a = new StickySidebar('#sidebar', { -->
+      <!-- topSpacing: 20, -->
+      <!-- bottomSpacing: 20, -->
+      <!-- containerSelector: '.container', -->
+      <!-- innerWrapperSelector: '.sidebar__inner' -->
+    <!-- }); -->
+  <!-- </script> -->
+
+</body>
+</html>
