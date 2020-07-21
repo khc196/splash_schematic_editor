@@ -145,20 +145,30 @@
   display: flex;
   justify-content: space-between;
 }
-#selectionPane {
-  width: 200px;
-  min-width: 200px;
+#selectionPaneWrapper {
+  width: 250px;
+  min-width: 250px;
   max-width: 50%;
   will-change: min-height;
+  border: solid 1px black;
+  background-color: white;
+}
+#selectionPaneTitle {
+  height: 0px;
+  background-color: white;
+  will-change: min-height;
+}
+#selectionPane {
+  height: 100%;
   background-color: white;
   display: flex;
   flex-direction: row;
-  border: solid 1px black;
+  overflow: auto;
 }
 #resizeBorder {
+  height: 100%;
   width: 5px;
   cursor: pointer;
-  height: 100%;
   background-color: #9b9b9b;
 }
 
