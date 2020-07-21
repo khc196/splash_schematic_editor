@@ -36,7 +36,7 @@
     var green = "forestgreen";  // 1 or true
 
     var init_instance;
-
+    var myDiagram, palette, myDiagram_buildUnit, myDiagram_buildUnit_selectionPane, myDiagram_buildUnit_selectionPaneTitle, myDiagram_sthread_component, myDiagram_sthread_sthread, myOverview, myOverview_bulidUnit;
     function init() {
 
         var externalDroppedObjectName = "NONE";
@@ -69,8 +69,6 @@
 
                 
                 
-                // notice whenever the selection may have changed
-                "ChangedSelection": enableAll,  // defined below, to enable/disable commands
 
                 // notice when the Paste command may need to be reenabled
                 "ClipboardChanged": enableAll,
@@ -208,8 +206,14 @@
 
                     inspector.inspectObject();
                     inspector2.inspectObject();
+                    myDiagram.selection.each(function(n) {
+                        diagnodes.add(myDiagram_buildUnit_selectionPane.findNodeForData(n.data));
+                    });
+                    myDiagram_buildUnit_selectionPane.clearSelection();
+                    myDiagram_buildUnit_selectionPane.selectCollection(diagnodes);
+                    myChangingSelection = false;
                 },
-
+                
                 // TextEdited: function(e) {
                 //   console.log("TextEdited()");
 
@@ -232,7 +236,10 @@
 
             }); 
        
-
+        var myChangingSelection = false;
+        var myChangingModel = false;
+        
+        myDiagram.isModified = false;
         // var selectingTool = myDiagram.toolManager.dragSelectingTool;
         // selectingTool.doActivate = function() {
         //   go.DragSelectingTool.prototype.doActivate.call(this);    
@@ -508,7 +515,7 @@
         }
       });
 
-      var palette = new go.Palette("palette");  // create a new Palette in the HTML DIV element "palette"
+      palette = new go.Palette("palette");  // create a new Palette in the HTML DIV element "palette"
       // creates relinkable Links that will avoid crossing Nodes when possible and will jump over other Links in their paths
       myDiagram.linkTemplate =
         $(go.Link,
@@ -2165,26 +2172,157 @@
             "draggingTool.isEnabled": false,  
             "clickSelectingTool.isEnabled": true,       
             hasHorizontalScrollbar: false,
+            "ChangedSelection": function(e) {
+                    if (myChangingSelection) return;
+                    myChangingSelection = true;
+                    var diagnodes = new go.Set();
+                    myDiagram_buildUnit.selection.each(function(n) {
+                    diagnodes.add(myDiagram_buildUnit_selectionPane.findNodeForData(n.data));
+                    });
+                    myDiagram_buildUnit_selectionPane.clearSelection();
+                    myDiagram_buildUnit_selectionPane.selectCollection(diagnodes);
+                    myChangingSelection = false;
+                },  // defined below, to enable/disable commands
           });
       
       myDiagram_buildUnit.nodeTemplateMap = myDiagram.nodeTemplateMap;
       myDiagram_buildUnit.groupTemplateMap = myDiagram.groupTemplateMap;
       myDiagram_buildUnit.linkTemplate = myDiagram.linkTemplate;
-      
+      myDiagram_buildUnit_selectionPaneTitle = $(go.Diagram, "selectionPaneTitle", {
+            initialContentAlignment: go.Spot.Top,
+            contentAlignment: go.Spot.TopLeft,
+            allowMove: false,
+            allowCopy: false,
+            allowDelete: false,
+            allowHorizontalScroll: false,
+            allowVerticalScroll: false,
+            allowSelect: false,
+      });
+      myDiagram_buildUnit_selectionPaneTitle.add($(go.Part, { location: new go.Point(0, 0) }, $(go.TextBlock, "Selection", { font: "bold 28pt sans-serif", stroke: "black" })));
+
       myDiagram_buildUnit_selectionPane = $(go.Diagram, "selectionPane",
-      {            
-            "undoManager.isEnabled": false,            
-            "draggingTool.isEnabled": false,  
-            "clickSelectingTool.isEnabled": true,       
-            hasHorizontalScrollbar: false,
-
-          });
+        {
+            initialContentAlignment: go.Spot.Top,
+            allowSelect: true,
+            allowMove: false,
+            allowCopy: false,
+            allowDelete: false,
+            allowHorizontalScroll: false, 
+            scrollsPageOnFocus: true,
+            contentAlignment: go.Spot.TopLeft,
+            "panningTool.isEnabled": false,
+            layout:
+                $(go.TreeLayout,
+                {
+                    alignment: go.TreeLayout.AlignmentStart,
+                    angle: 0,
+                    compaction: go.TreeLayout.CompactionNone,
+                    layerSpacing: 16,
+                    layerSpacingParentOverlap: 1,
+                    nodeIndent: 2,
+                    nodeIndentPastParent: 0.88,
+                    nodeSpacing: 0,
+                    setsPortSpot: false,
+                    setsChildPortSpot: false
+                }),
+            "ViewportBoundsChanged": function(e) {
+                //let allowScroll = !e.diagram.viewportBounds.containsRect(e.diagram.documentBounds);
+                // myDiagram_buildUnit_selectionPane.allowVerticalScroll = allowScroll;
+                },
+            "ChangedSelection": function(e) {
+                if (myChangingSelection) return;
+                myChangingSelection = true;
+                var diagnodes = new go.Set();
+                myDiagram_buildUnit_selectionPane.selection.each(function(n) {
+                    diagnodes.add(myDiagram_buildUnit.findNodeForData(n.data));
+                });
+                myDiagram_buildUnit.clearSelection();
+                myDiagram_buildUnit.selectCollection(diagnodes);
+                myChangingSelection = false;
+            }
+            });
+      myDiagram_buildUnit_selectionPane.add($(go.Part, { location: new go.Point(0, -70) }, $(go.TextBlock, "Selection", { font: "bold 28pt sans-serif", stroke: "black" })));
+      
       //myDiagram_buildUnit.isEnabled = false;
-
       //myDiagram_buildUnit.model = myDiagram.model;
-
-
-
+      myDiagram_buildUnit_selectionPane.nodeTemplate =
+        $(go.Node,
+          // no Adornment: instead change panel background color by binding to Node.isSelected
+          { selectionAdorned: false },
+          $("TreeExpanderButton",
+            {
+              width: 14,
+              "ButtonBorder.fill": "whitesmoke",
+              "ButtonBorder.stroke": null,
+              "_buttonFillOver": "rgba(0,128,255,0.25)",
+              "_buttonStrokeOver": null
+            }),
+          $(go.Panel, "Horizontal",
+            { position: new go.Point(16, 0) },
+            new go.Binding("background", "isSelected", function (s) { return (s ? "lightblue" : "white"); }).ofObject(),
+            $(go.TextBlock,
+              new go.Binding("text", "key"))
+          )  // end Horizontal Panel
+        );  // end Node
+    myDiagram_buildUnit_selectionPane.linkTemplate = $(go.Link);
+    myDiagram_buildUnit_selectionPane.model = $(go.TreeModel, { nodeParentKeyProperty: "group" });
+    
+    //Using this property incorrectly?
+    myDiagram_buildUnit_selectionPane.model.nodeParentKeyProperty = "group";
+    myDiagram_buildUnit_selectionPane.addModelChangedListener(function(e) {
+        if (e.model.skipsUndoManager) return;
+        if (myChangingModel) return;
+        myChangingModel = true;
+        // don't need to start/commit a transaction because the UndoManager is shared with myDiagram
+        if (e.modelChange === "nodeGroupKey" || e.modelChange === "nodeParentKey") {
+          // handle structural change: tree parent/children
+          var node = myDiagram.findNodeForData(e.object);
+          if (node !== null) node.updateRelationshipsFromData();
+        } else if (e.change === go.ChangedEvent.Property) {
+          // propagate simple data property changes back to the main Diagram
+          var node = myDiagram.findNodeForData(e.object);
+          if (node !== null) node.updateTargetBindings();
+        } else if (e.change === go.ChangedEvent.Insert && e.propertyName === "nodeDataArray") {
+          // pretend the new data isn't already in the nodeDataArray for the main Diagram model
+          myDiagram.model.nodeDataArray.splice(e.newParam, 1);
+          // now add to the myDiagram model using the normal mechanisms
+          myDiagram.model.addNodeData(e.newValue);
+        } else if (e.change === go.ChangedEvent.Remove && e.propertyName === "nodeDataArray") {
+          // remove the corresponding node from the main Diagram
+          var node = myDiagram.findNodeForData(e.oldValue);
+          if (node !== null) myDiagram.remove(node);
+        }
+        myChangingModel = false;
+      });
+      myDiagram_buildUnit_selectionPaneTitle.requestUpdate();
+      myDiagram_buildUnit_selectionPane.requestUpdate();
+      myDiagram.addModelChangedListener(function(e) {
+            if (e.isTransactionFinished) enableAll();
+            if (e.model.skipsUndoManager) return;
+            if (myChangingModel) return;
+            myChangingModel = true;
+            // don't need to start/commit a transaction because the UndoManager is shared with myDiagram_buildUnit_selectionPane
+            if (e.modelChange === "nodeGroupKey" || e.modelChange === "nodeParentKey") {
+            // handle structural change: group memberships
+            var treenode = myDiagram_buildUnit_selectionPane.findNodeForData(e.object);
+            if (treenode !== null) treenode.updateRelationshipsFromData();
+            } else if (e.change === go.ChangedEvent.Property) {
+            var treenode = myDiagram_buildUnit_selectionPane.findNodeForData(e.object);
+            if (treenode !== null) treenode.updateTargetBindings();
+            } else if (e.change === go.ChangedEvent.Insert && e.propertyName === "nodeDataArray") {
+            // pretend the new data isn't already in the nodeDataArray for myDiagram_buildUnit_selectionPane
+            myDiagram_buildUnit_selectionPane.model.nodeDataArray.splice(e.newParam, 1);
+            // now add to the myDiagram_buildUnit_selectionPane model using the normal mechanisms
+            myDiagram_buildUnit_selectionPane.model.addNodeData(e.newValue);
+            } else if (e.change === go.ChangedEvent.Remove && e.propertyName === "nodeDataArray") {
+            // remove the corresponding node from myDiagram_buildUnit_selectionPane
+            var treenode = myDiagram_buildUnit_selectionPane.findNodeForData(e.oldValue);
+            if (treenode !== null) myDiagram_buildUnit_selectionPane.remove(treenode);
+            }
+            myChangingModel = false;
+            myDiagram_buildUnit_selectionPaneTitle.requestUpdate();
+            myDiagram_buildUnit_selectionPane.requestUpdate();
+        });
       // SthreadTab component view
       myDiagram_sthread_component = $(go.Diagram, "SthreadViewer_component",
         {
@@ -2724,87 +2862,87 @@
       ];
   
 
-      {
+    //   {
                  
-        var paletteTemplate_dedicatedSthread = 
-          $(go.Node, "Spot",
-            { 
-              name: "PALETTE_DEDICATE_STHREAD",
-              zOrder : 10,  
-            },
-          $(go.Shape, "RoundedRectangle",
-            {               
-              fill: "white", stroke: "black", parameter1: 10, strokeWidth: 1.5, strokeDashArray: [5,3],
-              width: 80, height: 100,
-            }),
-          $(go.Shape, "BpmnActivityAdHoc",
-            {               
-              fill: "white", stroke: "black", angle: 90, strokeWidth: 4, alignment: new go.Spot(0.5, 0.35), 
-              width: 40, height: 40,
-            }),
-          $(go.TextBlock,
-            {
-              text: "Dedicated Sthread",
-              alignment: new go.Spot(0.5, 0.75),
-              textAlign: "center",
-              width: 60,
-              margin: 2,
-              overflow: go.TextBlock.OverflowEllipsis,
-              maxLines: 2,
+    //     var paletteTemplate_dedicatedSthread = 
+    //       $(go.Node, "Spot",
+    //         { 
+    //           name: "PALETTE_DEDICATE_STHREAD",
+    //           zOrder : 10,  
+    //         },
+    //       $(go.Shape, "RoundedRectangle",
+    //         {               
+    //           fill: "white", stroke: "black", parameter1: 10, strokeWidth: 1.5, strokeDashArray: [5,3],
+    //           width: 80, height: 100,
+    //         }),
+    //       $(go.Shape, "BpmnActivityAdHoc",
+    //         {               
+    //           fill: "white", stroke: "black", angle: 90, strokeWidth: 4, alignment: new go.Spot(0.5, 0.35), 
+    //           width: 40, height: 40,
+    //         }),
+    //       $(go.TextBlock,
+    //         {
+    //           text: "Dedicated Sthread",
+    //           alignment: new go.Spot(0.5, 0.75),
+    //           textAlign: "center",
+    //           width: 60,
+    //           margin: 2,
+    //           overflow: go.TextBlock.OverflowEllipsis,
+    //           maxLines: 2,
               
-            },
-          )
-        );
+    //         },
+    //       )
+    //     );
 
-        var paletteTemplate_internalSthread = 
-          $(go.Node, "Spot",
-            { 
-              name: "PALETTE_INTERNAL_STHREAD",
-              zOrder : 10,  
-            },
-          $(go.Shape, "RoundedRectangle",
-            {               
-              fill: "white", stroke: "black", parameter1: 10, strokeWidth: 1.5, strokeDashArray: [5,3],
-              width: 80, height: 100,
-            }),
-          $(go.Shape, "BpmnActivityAdHoc",
-            {               
-              fill: "white", stroke: "black", angle: 90, strokeWidth: 4, alignment: new go.Spot(0.5, 0.35), 
-              width: 40, height: 40,
-            }),
-          $(go.TextBlock,
-            {
-              text: "Internal Sthread",
-              alignment: new go.Spot(0.5, 0.75),
-              textAlign: "center",
-              width: 60,
-              margin: 2,
-              overflow: go.TextBlock.OverflowEllipsis,
-              maxLines: 2,
+    //     var paletteTemplate_internalSthread = 
+    //       $(go.Node, "Spot",
+    //         { 
+    //           name: "PALETTE_INTERNAL_STHREAD",
+    //           zOrder : 10,  
+    //         },
+    //       $(go.Shape, "RoundedRectangle",
+    //         {               
+    //           fill: "white", stroke: "black", parameter1: 10, strokeWidth: 1.5, strokeDashArray: [5,3],
+    //           width: 80, height: 100,
+    //         }),
+    //       $(go.Shape, "BpmnActivityAdHoc",
+    //         {               
+    //           fill: "white", stroke: "black", angle: 90, strokeWidth: 4, alignment: new go.Spot(0.5, 0.35), 
+    //           width: 40, height: 40,
+    //         }),
+    //       $(go.TextBlock,
+    //         {
+    //           text: "Internal Sthread",
+    //           alignment: new go.Spot(0.5, 0.75),
+    //           textAlign: "center",
+    //           width: 60,
+    //           margin: 2,
+    //           overflow: go.TextBlock.OverflowEllipsis,
+    //           maxLines: 2,
               
-            },
-          )
-        );
-      }
+    //         },
+    //       )
+    //     );
+    //   }
 
 
 
 
-      var palette_sthread = new go.Palette("palette_sthread");
+    //   var palette_sthread = new go.Palette("palette_sthread");
       
-      palette_sthread.nodeTemplateMap.add("dedicatedSthread", paletteTemplate_dedicatedSthread); 
-      palette_sthread.nodeTemplateMap.add("internalSthread", paletteTemplate_internalSthread); 
+    //   palette_sthread.nodeTemplateMap.add("dedicatedSthread", paletteTemplate_dedicatedSthread); 
+    //   palette_sthread.nodeTemplateMap.add("internalSthread", paletteTemplate_internalSthread); 
 
-      palette_sthread.layout = $(go.GridLayout, { alignment: go.GridLayout.Location, spacing: new go.Size(5,8)});
+    //   palette_sthread.layout = $(go.GridLayout, { alignment: go.GridLayout.Location, spacing: new go.Size(5,8)});
 
-    //   palette_sthread.model.makeUniqueKeyFunction = setKeyUUID;
-      palette_sthread.maxSelectionCount = 1;
+    // //   palette_sthread.model.makeUniqueKeyFunction = setKeyUUID;
+    //   palette_sthread.maxSelectionCount = 1;
 
-      palette_sthread.model.nodeDataArray = [
-        { category: "dedicatedSthread" },
-        { category: "internalSthread" },
+    //   palette_sthread.model.nodeDataArray = [
+    //     { category: "dedicatedSthread" },
+    //     { category: "internalSthread" },
         
-      ];
+    //   ];
 
 
     // build unit and fusion operator view window
@@ -2825,6 +2963,7 @@
             do {
                 new_name = "processing_component_" + name_count;
                 name_count = name_count + 1;
+                console.log(new_name);
             }while(model.findNodeDataForKey(new_name) !== null);
         }
         else if(data.category === "sourceComponent") {
@@ -3019,41 +3158,49 @@
     
     var openFile;
     function handleOpenFile(evt) {
-      openFile = evt.target.files[0]; // a file object
+        openFile = evt.target.files[0]; // a file object
 
-      var readString;
+        var readString;
 
-      var reader = new FileReader();
-      reader.onload = function(event) {
-          //console.log('File content:', event.target.result);
-          readString = event.target.result.substring(0);
+        var reader = new FileReader();
+        reader.onload = function(event) {
+            //console.log('File content:', event.target.result);
+            readString = event.target.result.substring(0);
 
-          //var 
-          //var string_GraphLinksModel = 
+            //var 
+            //var string_GraphLinksModel = 
 
-          console.log(readString);
-          myDiagram.model = go.Model.fromJson(readString);
+            //console.log(readString);
+            myDiagram.model = go.Model.fromJson(readString);
+            
+            var parsedString = JSON.parse(readString);   
+            buildUnitArray = parsedString.buildUnitArray;
+            readBuildUnitProperty();
+            //console.log(myDiagram.model.nodeDataArray);
+            //console.log(myDiagram.model.linkDataArray);
 
-          var parsedString = JSON.parse(readString);   
-          buildUnitArray = parsedString.buildUnitArray;
-          readBuildUnitProperty();
-          //console.log(myDiagram.model.nodeDataArray);
-          //console.log(myDiagram.model.linkDataArray);
-
-          //var parsedString = JSON.parse(readString);          
-          //console.log(parsedString.buildUnitArray);
-
-
-          console.log("OPEN?"+readString);
-      };
-      reader.readAsText(openFile);
-      var fileName = openFile.name.substring(0,openFile.name.length-5);
-
-      setCurrentFileName(fileName);
+            //var parsedString = JSON.parse(readString);          
+            //console.log(parsedString.buildUnitArray);
 
 
+            //console.log("OPEN?"+readString);
+        };
+        reader.readAsText(openFile);
+        var fileName = openFile.name.substring(0,openFile.name.length-5);
 
-      forceSelectTab('SchematicTab');      
+        setCurrentFileName(fileName);
+
+
+
+        forceSelectTab('SchematicTab');      
+        // share all of the data with the tree view
+        myDiagram_buildUnit_selectionPane.model.nodeDataArray = myDiagram.model.nodeDataArray;
+
+        // share the UndoManager too!
+        myDiagram_buildUnit_selectionPane.model.undoManager = myDiagram.model.undoManager;
+        myDiagram.requestUpdate();
+        myDiagram_buildUnit.requestUpdate();
+        myDiagram_buildUnit_selectionPane.requestUpdate();
     }
               
     // the Overview
@@ -3080,9 +3227,10 @@
     function resizeSelectionPane(e) {
         var dx = m_pos - e.x;
         m_pos = e.x;
-        var panel = document.getElementById("selectionPane");
+        var panel = document.getElementById("selectionPaneWrapper");
         panel.style.width = (parseInt(getComputedStyle(panel, '').width) + dx) + "px";
         myDiagram_buildUnit.requestUpdate();
+        myDiagram_buildUnit_selectionPaneTitle.requestUpdate();
         myDiagram_buildUnit_selectionPane.requestUpdate();
     }
     document.getElementById("fileOpenMenu").addEventListener("change", handleOpenFile, false);
@@ -3114,7 +3262,8 @@
     }
     
     function enableAll() {
-      var cmdhnd = myDiagram.commandHandler;
+        var cmdhnd = myDiagram.commandHandler;
+        
 /*      enable("Rename", myDiagram.selection.count > 0);
       enable("Undo", cmdhnd.canUndo());
       enable("Redo", cmdhnd.canRedo());
@@ -3236,9 +3385,7 @@
         // every time after you need nothing, or in case the Diagram div changed size, this:
         myDiagram.requestUpdate();
         myDiagram_buildUnit.requestUpdate();
-        myDiagram_sthread_component.requestUpdate();
-        myDiagram_sthread_sthread.requestUpdate();
-
+        myDiagram_buildUnit_selectionPane.requestUpdate();
       }
     });
 
@@ -3458,28 +3605,57 @@
         }
       }
       setCurrentFileName(UnsavedFileName);
+      myDiagram.div = null;
+      myDiagram = null;
 
-      // loads an empty diagram
-      myDiagram.model = new go.GraphLinksModel();
-      myDiagram.undoManager.isEnabled = true;
-      myDiagram.addModelChangedListener(function(e) {
-        if (e.isTransactionFinished) enableAll();
-      });
-      curFile.textContent = "(NEW_FILENAME)";
-      myDiagram.isModified = false;
+      palette.div = null;
+      palette = null;
+
+      myDiagram_buildUnit.div = null;
+      myDiagram_buildUnit = null;
+
+      myDiagram_buildUnit_selectionPane.div = null;
+      myDiagram_buildUnit_selectionPane = null;
+
+      myDiagram_buildUnit_selectionPaneTitle.div = null;
+      myDiagram_buildUnit_selectionPaneTitle = null;
+
+      myDiagram_sthread_component.div = null;
+      myDiagram_sthread_component = null;
+
+      myDiagram_sthread_sthread.div = null;
+      myDiagram_sthread_sthread = null;
+
+      myOverview.div = null;
+      myOverview_bulidUnit.div = null;
+
+      init();
+    //   // loads an empty diagram
+    //   myDiagram.model = new go.GraphLinksModel();
+    //   myDiagram.undoManager.isEnabled = true;
+     
+    //   // share all of the data with the tree view
+      
+    //   myDiagram_buildUnit_selectionPane.model.nodeDataArray = myDiagram.model.nodeDataArray;
+
+    //   // share the UndoManager too!
+    //   myDiagram_buildUnit_selectionPane.model.undoManager = myDiagram.model.undoManager;
+    //   curFile.textContent = "(NEW_FILENAME)";
+    //   myDiagram.isModified = false;
     }
 
     function openDocument() {
-      var curFile = document.getElementById("currentFile");
-      var curFileName = curFile.textContent.substring(0);
+        var curFile = document.getElementById("currentFile");
+        var curFileName = curFile.textContent.substring(0);
 
-      if (myDiagram.isModified) {
-        var save = confirm("Would you like to save changes to " + curFileName + "?");
-        if (save) {
-          saveDocument();
+        if (myDiagram.isModified) {
+            var save = confirm("Would you like to save changes to " + curFileName + "?");
+            if (save) {
+            saveDocument();
+            }
         }
-      }
-      $("#fileOpenMenu").trigger("click");
+        $("#fileOpenMenu").trigger("click");
+        
     }
 
 
@@ -3973,6 +4149,7 @@ function toggleFusionOperatorWindow() {
   function updateBuildUnitViewer() {
     console.log("updateBuildUnitViewer()");
     myDiagram_buildUnit.model = myDiagram.model;
+    myDiagram_buildUnit_selectionPane.requestUpdate();
     myDiagram_buildUnit.requestUpdate();
     updateColor_buildUnit();
   }
@@ -4149,7 +4326,11 @@ function toggleFusionOperatorWindow() {
         <div id="buildUnitCanvas">
             <div id="buildUnitViewer"></div>
             <div id="resizeBorder"></div>
-            <div id="selectionPane"></div>
+            <div id="selectionPaneWrapper">
+                <div id="selectionPaneTitle"></div>
+                <div id="selectionPane"></div>
+            </div>
+            
         </div>  
         
   </div>
