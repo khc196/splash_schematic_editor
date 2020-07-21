@@ -39,454 +39,454 @@
 
     function init() {
 
-      var externalDroppedObjectName = "NONE";
-      var internalSelectedObjectName = "NONE";
+        var externalDroppedObjectName = "NONE";
+        var internalSelectedObjectName = "NONE";
 
-      var $ = go.GraphObject.make;  // for conciseness in defining templates
-      
-      myDiagram =
-        $(go.Diagram, "SplashCanvas",  // create a new Diagram in the HTML DIV element "SplashCanvas"
-          {
-             initialDocumentSpot: go.Spot.TopCenter,
-             initialViewportSpot: go.Spot.TopCenter,
-
-
-            
-            "undoManager.isEnabled": true,
-            commandHandler: new DrawCommandHandler(),  // defined in DrawCommandHandler.js
-            "commandHandler.archetypeGroupData": { isGroup: true, category: "OfNodes" },
-            
-            //resizingTool: new ResizeMultipleTool(),  // defined in ResizeMultipleTool.js
-            "resizingTool.isGridSnapEnabled" : true,
-            
-            
-            draggingTool: new GuidedDraggingTool(),  // defined in GuidedDraggingTool.js
-            "draggingTool.isGridSnapEnabled": true,  // dragged nodes will snap to a grid of 10x10 cells
-            "draggingTool.horizontalGuidelineColor": "blue",
-            "draggingTool.verticalGuidelineColor": "blue",
-            "draggingTool.centerGuidelineColor": "green",
-            "draggingTool.guidelineWidth": 1,
-
-            
-            
-            // notice whenever the selection may have changed
-            "ChangedSelection": enableAll,  // defined below, to enable/disable commands
-
-            // notice when the Paste command may need to be reenabled
-            "ClipboardChanged": enableAll,
+        var $ = go.GraphObject.make;  // for conciseness in defining templates
+        
+        myDiagram =
+            $(go.Diagram, "SplashCanvas",  // create a new Diagram in the HTML DIV element "SplashCanvas"
+            {
+                initialDocumentSpot: go.Spot.TopCenter,
+                initialViewportSpot: go.Spot.TopCenter,
 
 
-            dragSelectingTool:
-            $(RealtimeDragSelectingTool,
-              { isPartialInclusion: true, delay: 175 },
-              {
-                box: $(go.Part,  // replace the magenta box with a red one
-                  { layerName: "Tool", selectable: false },
-                  $(go.Shape,
-                    {
-                      name: "SHAPE", fill: "rgba(255,0,0,0.1)",
-                      stroke: "red", strokeWidth: 2
-                    }))
-              },
-            ),
-
-            "LayoutCompleted": function(e) {
-              e.diagram.nodes.each(n => n.updateTargetBindings("actualBounds"))             
-            },
-
-           
-
-            
-            mouseDrop: function(e) { 
-              finishDrop(e, null);
-              
-
-            },
-            
-
-            ExternalObjectsDropped: function(e) {
-            
-              console.log("ExternalObjectsDropped()");
-              e.subject.each( function(part) 
-              {
-                externalDroppedObjectName = part.name;
-                internalSelectedObjectName = "NONE";
                 
-                setDefaultProperty(part);
-                addDefaultPort(part);
+                "undoManager.isEnabled": true,
+                commandHandler: new DrawCommandHandler(),  // defined in DrawCommandHandler.js
+                "commandHandler.archetypeGroupData": { isGroup: true, category: "OfNodes" },
+                
+                //resizingTool: new ResizeMultipleTool(),  // defined in ResizeMultipleTool.js
+                "resizingTool.isGridSnapEnabled" : true,
+                
+                
+                draggingTool: new GuidedDraggingTool(),  // defined in GuidedDraggingTool.js
+                "draggingTool.isGridSnapEnabled": true,  // dragged nodes will snap to a grid of 10x10 cells
+                "draggingTool.horizontalGuidelineColor": "blue",
+                "draggingTool.verticalGuidelineColor": "blue",
+                "draggingTool.centerGuidelineColor": "green",
+                "draggingTool.guidelineWidth": 1,
 
-                inspector.inspectObject();
-                inspector2.inspectObject();
+                
+                
+                // notice whenever the selection may have changed
+                "ChangedSelection": enableAll,  // defined below, to enable/disable commands
 
-                updateCurrentObject(part);
-
-                addLog("Add a new Component: "+part.name);
-                //console.log("BuildUnit is null string? "+ (part.data.BuildUnit === null) ? "true" : "false");
-              });
+                // notice when the Paste command may need to be reenabled
+                "ClipboardChanged": enableAll,
 
 
-            },
+                dragSelectingTool:
+                $(RealtimeDragSelectingTool,
+                { isPartialInclusion: true, delay: 175 },
+                {
+                    box: $(go.Part,  // replace the magenta box with a red one
+                    { layerName: "Tool", selectable: false },
+                    $(go.Shape,
+                        {
+                        name: "SHAPE", fill: "rgba(255,0,0,0.1)",
+                        stroke: "red", strokeWidth: 2
+                        }))
+                },
+                ),
 
-            SelectionCopied: function(e) {
-              console.log("SelectionCopied()");
-              //e.subject.part.key = createKeyUUID();
+                "LayoutCompleted": function(e) {
+                e.diagram.nodes.each(n => n.updateTargetBindings("actualBounds"))             
+                },
 
-              e.subject.each( function(part) 
-              {
-                part.key = createKeyUUID();
-                addLog("Copy a new Component: "+part.name);
-                console.log("key:"+part.key);
-              });
-
-              inspector.inspectObject();
-              inspector2.inspectObject();
-
-            },
             
-            ClipboardPasted: function(e) {
-              console.log("ClipboardPasted()");
-              //e.subject.part.key = createKeyUUID();
 
-              e.subject.each( function(part) 
-              {
-                part.key = createKeyUUID();
-                addLog("Copy a new Component: "+part.name);
-              });
+                
+                mouseDrop: function(e) { 
+                    finishDrop(e, null);
+                },
+                
+                
+                ExternalObjectsDropped: function(e) {
+                
+                    console.log("ExternalObjectsDropped()");
+                    e.subject.each( function(part) 
+                        {
+                            externalDroppedObjectName = part.name;
+                            internalSelectedObjectName = "NONE";
+                            setDefaultProperty(part);
+                            addDefaultPort(part);
+                            inspector.inspectObject();
+                            inspector2.inspectObject();
+                            updateCurrentObject(part);
+                            addLog("Add a new Component: "+part.name);
+                            //console.log("BuildUnit is null string? "+ (part.data.BuildUnit === null) ? "true" : "false");
+                        });
+                },
+                
+                SelectionCopied: function(e) {
+                    console.log("SelectionCopied()");
+                    //e.subject.part.key = createKeyUUID();
 
-              inspector.inspectObject();
-              inspector2.inspectObject();
+                    e.subject.each( function(part) 
+                    {
+                        part.key = createKeyUUID();
+                        addLog("Copy a new Component: "+part.name);
+                        console.log("key:"+part.key);
+                    });
 
-            },
-            
-            ObjectSingleClicked: function(e) {
-              console.log("ObjectSingleClicked()");
-              var selected = e.subject.part;
-              externalDroppedObjectName = "NONE";
-              internalSelectedObjectName = selected.name;
+                    inspector.inspectObject();
+                    inspector2.inspectObject();
+                    },
+                    
+                ClipboardPasted: function(e) {
+                    console.log("ClipboardPasted()");
+                    //e.subject.part.key = createKeyUUID();
 
-              console.log(selected.name);
-              //setDefaultProperty(selected);
-              console.log(selected.points);
+                    e.subject.each( function(part) 
+                    {
+                        part.key = createKeyUUID();
+                        setDefaultProperty(part);
+                        addDefaultPort(part);
+                        inspector.inspectObject();
+                        inspector2.inspectObject();
+                        updateCurrentObject(part);
+                        addLog("Copy a new Component: "+part.name);
+                    });
 
-              updateCurrentObject(selected);
-              //relocatePort(selected);              
+                },
+                
+                ObjectSingleClicked: function(e) {
+                    console.log("ObjectSingleClicked()");
+                    var selected = e.subject.part;
+                    externalDroppedObjectName = "NONE";
+                    internalSelectedObjectName = selected.name;
+                    console.log(selected.key);
+                    console.log(selected.name);
+                    //setDefaultProperty(selected);
 
-              inspector.inspectObject();
-              inspector2.inspectObject();
-            },
+                    updateCurrentObject(selected);
+                    //relocatePort(selected);              
 
-            ObjectContextClicked: function(e) {
-              console.log("ObjectContextClicked()");
-              var selected = e.subject.part;
-              externalDroppedObjectName = "NONE";
-              internalSelectedObjectName = selected.name;
+                    inspector.inspectObject();
+                    inspector2.inspectObject();
+                },
 
-              //setDefaultProperty(selected);
-              console.log(selected.points);
+                ObjectContextClicked: function(e) {
+                    console.log("ObjectContextClicked()");
+                    var selected = e.subject.part;
+                    externalDroppedObjectName = "NONE";
+                    internalSelectedObjectName = selected.name;
 
-              updateCurrentObject(selected);
-              //relocatePort(selected);
+                    //setDefaultProperty(selected);
 
-              inspector.inspectObject();
-              inspector2.inspectObject();   
-            },
+                    updateCurrentObject(selected);
+                    //relocatePort(selected);
 
-            ChangingSelection: function(e) {
+                    inspector.inspectObject();
+                    inspector2.inspectObject();   
+                },
 
-              //inheritBuildUnit(e);
-              console.log("ChangingSelection()");
-              e.diagram.selection.each(function(part){
-                updateCurrentObject(part);              
-              });
-            },
+                ChangingSelection: function(e) {
 
-            PartResized: function(e) {
-              console.log("PartResized()");
+                    //inheritBuildUnit(e);
+                    console.log("ChangingSelection()");
+                    e.diagram.selection.each(function(part){
+                        updateCurrentObject(part);              
+                    });
+                    },
 
-            },
+                    PartResized: function(e) {
+                    console.log("PartResized()");
 
-
-            LinkDrawn: function(e) {
-              console.log("LinkDrawn()");
- 
-              deactivateAllStreamPort(e.diagram);
-              deactivateAllEventPort(e.diagram);
-
-              //var selected = e.subject.part;
-              //selected.data.segArray = selected.flattenedLengths.toString();
-
-              inspector.inspectObject();
-              inspector2.inspectObject();
-            },
-
-            // TextEdited: function(e) {
-            //   console.log("TextEdited()");
-
-            //   var selected = e.subject.part;
-            //   relocatePort(selected);
-
-            //   inspector.inspectObject();
-            //   inspector2.inspectObject();
-            // },
+                    },
 
 
-            // ChangedSelection: function(e) {
-            //   console.log("ChangedSelection()");
-            //   var selected = e.subject.part;
-            //   console.log(selected);
+                    LinkDrawn: function(e) {
+                    console.log("LinkDrawn()");
+        
+                    deactivateAllStreamPort(e.diagram);
+                    deactivateAllEventPort(e.diagram);
 
-            //   inspector.inspectObject();
-            //   inspector2.inspectObject();
-            // },
+                    //var selected = e.subject.part;
+                    //selected.data.segArray = selected.flattenedLengths.toString();
 
-          }); 
+                    inspector.inspectObject();
+                    inspector2.inspectObject();
+                },
+
+                // TextEdited: function(e) {
+                //   console.log("TextEdited()");
+
+                //   var selected = e.subject.part;
+                //   relocatePort(selected);
+
+                //   inspector.inspectObject();
+                //   inspector2.inspectObject();
+                // },
+
+
+                // ChangedSelection: function(e) {
+                //   console.log("ChangedSelection()");
+                //   var selected = e.subject.part;
+                //   console.log(selected);
+
+                //   inspector.inspectObject();
+                //   inspector2.inspectObject();
+                // },
+
+            }); 
        
 
-      // var selectingTool = myDiagram.toolManager.dragSelectingTool;
-      // selectingTool.doActivate = function() {
-      //   go.DragSelectingTool.prototype.doActivate.call(this);    
-      // }  
+        // var selectingTool = myDiagram.toolManager.dragSelectingTool;
+        // selectingTool.doActivate = function() {
+        //   go.DragSelectingTool.prototype.doActivate.call(this);    
+        // }  
 
-      // relocatePart() is relocate stream input/output port of source/sink component when there textBlock is added.
-      function relocatePort(part) {
-        console.log("relocatePort()");
-        //console.log(part.name);
+        // relocatePart() is relocate stream input/output port of source/sink component when there textBlock is added.
+        function relocatePort(part) {
+            console.log("relocatePort()");
 
-        var it_memberParts;
-        var memeber_port;
+            var it_memberParts;
+            var memeber_port;
 
-        if(part.name == "SOURCE") {
-          it_memberParts = part.memberParts;
-          memeber_port = it_memberParts.first()
+            if(part.name == "SOURCE") {
+            it_memberParts = part.memberParts;
+            memeber_port = it_memberParts.first()
 
-          memeber_port.location = new go.Point(part.location.x+30, part.location.y-part.actualBounds.height/2+10);
-          console.log(memeber_port.location);
+            memeber_port.location = new go.Point(part.location.x+30, part.location.y-part.actualBounds.height/2+10);
+            console.log(memeber_port.location);
 
-        } else if(part.name == "SINK") {
-          it_memberParts = part.memberParts;
-          memeber_port = it_memberParts.first()
+            } else if(part.name == "SINK") {
+            it_memberParts = part.memberParts;
+            memeber_port = it_memberParts.first()
 
-          memeber_port.location = new go.Point(part.location.x-50, part.location.y-part.actualBounds.height/2+10);
+            memeber_port.location = new go.Point(part.location.x-50, part.location.y-part.actualBounds.height/2+10);
 
-        } else if(part.name == "FUSION") {
-          /*
-          it_memberParts = part.memberParts;
+            } else if(part.name == "FUSION") {
+            /*
+            it_memberParts = part.memberParts;
 
-          it_memberParts.each(function(node){
-            if(node.name === "STREAM_OUTPUT_PORT") memeber_port = node;
-          });
-          memeber_port.location = new go.Point(part.location.x+30, part.location.y-part.actualBounds.height/2+40);
-          */
-        }
-      }
-
-
-      // Build unit code
-      function inheritBuildUnit(part) {
-        console.log("inheritBuildUnit()");
-        var it_memeberParts;
-        var memeber_port;
-
-        // 1. factory
-        if(part.name === "FACTORY") {          
-          it_memeberParts = part.memberParts;
-          // 1-1. factory, delegation port and atmoic component
-          if(!notAssigned_buildUnit(part.data.BuildUnit)) {
-            it_memeberParts.each(function(node){
-              if(node.name === "FACTORY") {
-                node.data.BuildUnit = part.data.BuildUnit;
-                inheritBuildUnit(node);
-              }
-              if(node.name === "STREAM_DELEGATION_PORT") {
-                  node.data.BuildUnit = part.data.BuildUnit;
-              }
-              if(node.name === "SOURCE"
-                || node.name === "SINK"
-                || node.name === "PROCESSING"
-                || node.name === "FUSION") {
-                node.data.BuildUnit = part.data.BuildUnit;
-                inheritBuildUnit(node);
-              }
+            it_memberParts.each(function(node){
+                if(node.name === "STREAM_OUTPUT_PORT") memeber_port = node;
             });
-          } else {
+            memeber_port.location = new go.Point(part.location.x+30, part.location.y-part.actualBounds.height/2+40);
+            */
+            }
+        }
+
+
+        // Build unit code
+        function inheritBuildUnit(part) {
+            console.log("inheritBuildUnit()");
+            var it_memeberParts;
+            var memeber_port;
+
+            // 1. factory
+            if(part.name === "FACTORY") {          
+            it_memeberParts = part.memberParts;
+            // 1-1. factory, delegation port and atmoic component
+            if(!notAssigned_buildUnit(part.data.BuildUnit)) {
+                it_memeberParts.each(function(node){
+                if(node.name === "FACTORY") {
+                    node.data.BuildUnit = part.data.BuildUnit;
+                    inheritBuildUnit(node);
+                }
+                if(node.name === "STREAM_DELEGATION_PORT") {
+                    node.data.BuildUnit = part.data.BuildUnit;
+                }
+                if(node.name === "SOURCE"
+                    || node.name === "SINK"
+                    || node.name === "PROCESSING"
+                    || node.name === "FUSION") {
+                    node.data.BuildUnit = part.data.BuildUnit;
+                    inheritBuildUnit(node);
+                }
+                });
+            } else {
+                it_memeberParts.each(function(node){
+                if(node.name === "STREAM_DELEGATION_PORT") {
+                    node.data.BuildUnit = undefined;
+                }
+                });
+            }
+            }
+
+            // 2. atomic component
+            if(part.name === "SOURCE"
+            || part.name === "SINK"
+            || part.name === "PROCESSING"
+            || part.name === "FUSION") {
+            it_memeberParts = part.memberParts;
+            // port
             it_memeberParts.each(function(node){
-              if(node.name === "STREAM_DELEGATION_PORT") {
-                  node.data.BuildUnit = undefined;
-              }
+                if(node.name === "STREAM_INPUT_PORT"
+                || node.name === "STREAM_OUTPUT_PORT") {
+                node.data.BuildUnit = part.data.BuildUnit;
+                }
             });
-          }
-        }
-
-        // 2. atomic component
-        if(part.name === "SOURCE"
-          || part.name === "SINK"
-          || part.name === "PROCESSING"
-          || part.name === "FUSION") {
-          it_memeberParts = part.memberParts;
-          // port
-          it_memeberParts.each(function(node){
-            if(node.name === "STREAM_INPUT_PORT"
-            || node.name === "STREAM_OUTPUT_PORT") {
-              node.data.BuildUnit = part.data.BuildUnit;
             }
-          });
-        }
 
-        // 3. channel
-        var it_links;
+            // 3. channel
+            var it_links;
 
-        if(part.name === "FACTORY") {
-          it_memeberParts = part.memberParts;
-          it_memeberParts.each(function(node){
-            if(node.name === "STREAM_DELEGATION_PORT") {
-              it_links = node.findLinksConnected();
-              it_links.each(function(link){
-                if(link.fromNode.data.BuildUnit == link.toNode.data.BuildUnit) {
-                  link.data.BuildUnit = link.fromNode.data.BuildUnit;
+            if(part.name === "FACTORY") {
+            it_memeberParts = part.memberParts;
+            it_memeberParts.each(function(node){
+                if(node.name === "STREAM_DELEGATION_PORT") {
+                it_links = node.findLinksConnected();
+                it_links.each(function(link){
+                    if(link.fromNode.data.BuildUnit == link.toNode.data.BuildUnit) {
+                    link.data.BuildUnit = link.fromNode.data.BuildUnit;
+                    }
+                });
                 }
-              });
-            }
-          });
-        } else if(part.name === "SOURCE"
-          || part.name === "SINK"
-          || part.name === "PROCESSING"
-          || part.name === "FUSION") {
-          it_memeberParts = part.memberParts;
-          it_memeberParts.each(function(node){
-            if(node.name === "STREAM_INPUT_PORT"
-              || node.name === "STREAM_OUTPUT_PORT") {
-              it_links = node.findLinksConnected();
-              it_links.each(function(link){
-                if(link.fromNode.data.BuildUnit == link.toNode.data.BuildUnit) {
-                  link.data.BuildUnit = link.fromNode.data.BuildUnit;
+            });
+            } else if(part.name === "SOURCE"
+            || part.name === "SINK"
+            || part.name === "PROCESSING"
+            || part.name === "FUSION") {
+            it_memeberParts = part.memberParts;
+            it_memeberParts.each(function(node){
+                if(node.name === "STREAM_INPUT_PORT"
+                || node.name === "STREAM_OUTPUT_PORT") {
+                it_links = node.findLinksConnected();
+                it_links.each(function(link){
+                    if(link.fromNode.data.BuildUnit == link.toNode.data.BuildUnit) {
+                    link.data.BuildUnit = link.fromNode.data.BuildUnit;
+                    }
+                });
                 }
-              });
+            });
+            }        
+        }
+
+        // build unit
+        function updatebuiilUnit(part) {
+            inheritBuildUnit(part);
+        }
+
+        function updateObjectBindings(part) {
+            part.UpdateTargetBindings;
+        }
+
+        function updateCurrentObject(part) {
+            console.log('updateCurrentObject()');
+            relocatePort(part);
+            updatebuiilUnit(part);
+            //inheritBuildUnit(part);
+            updateObjectBindings(part);
+            if(part.name == "FUSION") {
+                UpdatePropertyWindow_fusionOperator(part);
             }
-          });
-        }        
-      }
+            if(part.name == "STREAM_INPUT_PORT") {
+                if(!(part.containingGroup === null || part.containingGroup === undefined)) {         
+                    if(part.containingGroup.name == "FUSION")
+                    UpdatePropertyWindow_fusionOperator(part);
+                }
+            }
+        }    
 
-      // build unit
-      function updatebuiilUnit(part) {
-        inheritBuildUnit(part);
-      }
-
-      function updateObjectBindings(part) {
-        part.UpdateTargetBindings;
-      }
-
-      function updateCurrentObject(part) {
-        relocatePort(part);
-        updatebuiilUnit(part);
-        //inheritBuildUnit(part);
-        //updateObjectBindings(part);
-        if(part.name == "FUSION") {
-          UpdatePropertyWindow_fusionOperator(part);
+        function addDefaultPort(part) {
+            var defaultPort;
+            if(part.name === "SOURCE") {
+                defaultPort = {
+                    category: "streamPort", 
+                    group: part.data.key, 
+                    PORT_TYPE: "STREAM_OUTPUT_PORT",
+                    loc: go.Point.stringify(new go.Point(part.location.x+30, part.location.y-part.actualBounds.height/2+10)),
+                };
+                myDiagram.model.addNodeData(defaultPort);  
+            } else if(part.name === "SINK") {
+                defaultPort = {
+                    category: "streamPort", 
+                    group: part.data.key, 
+                    PORT_TYPE: "STREAM_INPUT_PORT",
+                    loc: go.Point.stringify(new go.Point(part.location.x-50, part.location.y-part.actualBounds.height/2+10)),
+                };
+                myDiagram.model.addNodeData(defaultPort); 
+            } else if(part.name === "FUSION") {
+                defaultPort = {
+                    category: "streamPort", 
+                    group: part.data.key, 
+                    PORT_TYPE: "STREAM_OUTPUT_PORT",
+                    loc: go.Point.stringify(new go.Point(part.location.x+10, part.location.y-part.actualBounds.height/2+40)),
+                };
+                myDiagram.model.addNodeData(defaultPort);  
+            }
         }
-        if(part.name == "STREAM_INPUT_PORT") {
-          if(!(part.containingGroup === null || part.containingGroup === undefined)) {         
-            if(part.containingGroup.name == "FUSION")
-              UpdatePropertyWindow_fusionOperator(part);
-          }
-        }
-      }    
-
-      function addDefaultPort(part) {
-        var defaultPort;
-        if(part.name === "SOURCE") {
-          defaultPort = {
-            category: "streamPort", 
-            group: part.data.key, 
-            PORT_TYPE: "STREAM_OUTPUT_PORT",
-            loc: go.Point.stringify(new go.Point(part.location.x+30, part.location.y-part.actualBounds.height/2+10)),
-          };
-          myDiagram.model.addNodeData(defaultPort);  
-        } else if(part.name === "SINK") {
-          defaultPort = {
-            category: "streamPort", 
-            group: part.data.key, 
-            PORT_TYPE: "STREAM_INPUT_PORT",
-            loc: go.Point.stringify(new go.Point(part.location.x-50, part.location.y-part.actualBounds.height/2+10)),
-          };
-          myDiagram.model.addNodeData(defaultPort); 
-        } else if(part.name === "FUSION") {
-          defaultPort = {
-            category: "streamPort", 
-            group: part.data.key, 
-            PORT_TYPE: "STREAM_OUTPUT_PORT",
-            loc: go.Point.stringify(new go.Point(part.location.x+10, part.location.y-part.actualBounds.height/2+40)),
-          };
-          myDiagram.model.addNodeData(defaultPort);  
-        }
-      }
 
 
   		function setDefaultProperty(part) {
-  			console.log("setDefaultProperty()");
-        part.data.BuildUnit = "";
-        part.key = createKeyUUID();
-				if(part.name === "PROCESSING") {
-					part.data.WIDTH = 100; 
-					part.data.HEIGHT = 100; 
-				} else if (part.name === "FUSION") {
-					part.data.HEIGHT = 100;
-					part.data.WIDTH = 40;
-				} else if (part.name === "FACTORY") {
-					part.data.WIDTH = 450;
-					part.data.HEIGHT = 250; 
-				}
-				part.UpdateTargetBindings;
-
+            console.log("setDefaultProperty()");
+            var new_name = ""
+            var name_count = 1;
+            part.data.BuildUnit = "";
+            if(part.name === "PROCESSING") {
+                part.data.WIDTH = 100; 
+                part.data.HEIGHT = 100;
+            } else if (part.name === "SOURCE") {
+            } else if (part.name === "FUSION") {
+                part.data.HEIGHT = 100;
+                part.data.WIDTH = 40;
+            } else if (part.name === "FACTORY") {
+                part.data.WIDTH = 450;
+                part.data.HEIGHT = 250; 
+            }
+            myDiagram.requestUpdate()
   		}
-
-
-      myDiagram.model.makeUniqueKeyFunction = setKeyUUID;
-
-       
-      myDiagram.grid =
-        $(go.Panel, "Grid",
-          {
-            name: "GRID",
-            visible: true,
-            gridCellSize: new go.Size(10, 10),
-            gridOrigin: new go.Point(0, 0)
-          },
-          $(go.Shape, "LineH", { stroke: "lightgray", strokeWidth: 0.5, interval: 1 }),
-          $(go.Shape, "LineH", { stroke: "gray", strokeWidth: 0.5, interval: 5 }),
-          $(go.Shape, "LineH", { stroke: "gray", strokeWidth: 1.0, interval: 10 }),
-          $(go.Shape, "LineV", { stroke: "lightgray", strokeWidth: 0.5, interval: 1 }),
-          $(go.Shape, "LineV", { stroke: "gray", strokeWidth: 0.5, interval: 5 }),
-          $(go.Shape, "LineV", { stroke: "gray", strokeWidth: 1.0, interval: 10 })
-        );
+        function checkIfNameExists(name) {
+            var exist_flag = false;
+            myDiagram.nodes.each(function(node) {
+                if(name == node.key) {
+                    exist_flag = true;
+                    return;
+                }
+            })
+            return exist_flag;
+        }
+      
+        myDiagram.model.makeUniqueKeyFunction = setKeyUUID;
+        
+        myDiagram.grid =
+            $(go.Panel, "Grid",
+            {
+                name: "GRID",
+                visible: true,
+                gridCellSize: new go.Size(10, 10),
+                gridOrigin: new go.Point(0, 0)
+            },
+            $(go.Shape, "LineH", { stroke: "lightgray", strokeWidth: 0.5, interval: 1 }),
+            $(go.Shape, "LineH", { stroke: "gray", strokeWidth: 0.5, interval: 5 }),
+            $(go.Shape, "LineH", { stroke: "gray", strokeWidth: 1.0, interval: 10 }),
+            $(go.Shape, "LineV", { stroke: "lightgray", strokeWidth: 0.5, interval: 1 }),
+            $(go.Shape, "LineV", { stroke: "gray", strokeWidth: 0.5, interval: 5 }),
+            $(go.Shape, "LineV", { stroke: "gray", strokeWidth: 1.0, interval: 10 })
+            );
 
 
         function finishDrop(e, grp) {      
-          var ok = (grp !== null
+            var ok = (grp !== null
             ? grp.addMembers(grp.diagram.selection, true)
             : e.diagram.commandHandler.addTopLevelParts(e.diagram.selection, true));
-          if (!ok) e.diagram.currentTool.doCancel();        
+            if (!ok) e.diagram.currentTool.doCancel();        
         }
 
-      function highlightGroup(e, grp, show) { 
-        if (!grp) return;
-        e.handled = true;
-        if (show) {
-          // cannot depend on the grp.diagram.selection in the case of external drag-and-drops;
-          // instead depend on the DraggingTool.draggedParts or .copiedParts
-          var tool = grp.diagram.toolManager.draggingTool;
-          var map = tool.draggedParts || tool.copiedParts;  // this is a Map
-          // now we can check to see if the Group will accept membership of the dragged Parts
-          if (grp.canAddMembers(map.toKeySet())) {
-            //grp.isHighlighted = true;
-            grp.findObject("SHAPE").fill = "#FBB5B5";
-            return;
-          }
-        }
-        //grp.isHighlighted = false;
-        grp.findObject("SHAPE").fill = "white";
-        grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = null;
-        grp.findObject("AREA_STREAM_INPUT_PORT").fill = null;
-      };
+        function highlightGroup(e, grp, show) { 
+            if (!grp) return;
+            e.handled = true;
+            if (show) {
+            // cannot depend on the grp.diagram.selection in the case of external drag-and-drops;
+            // instead depend on the DraggingTool.draggedParts or .copiedParts
+            var tool = grp.diagram.toolManager.draggingTool;
+            var map = tool.draggedParts || tool.copiedParts;  // this is a Map
+            // now we can check to see if the Group will accept membership of the dragged Parts
+            if (grp.canAddMembers(map.toKeySet())) {
+                //grp.isHighlighted = true;
+                grp.findObject("SHAPE").fill = "#FBB5B5";
+                return;
+            }
+            }
+            //grp.isHighlighted = false;
+            grp.findObject("SHAPE").fill = "white";
+            grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = null;
+            grp.findObject("AREA_STREAM_INPUT_PORT").fill = null;
+        };
 
 
 
@@ -725,7 +725,7 @@
 
         function toggleAllStreamPort(current_diagram, obj) {
           console.log("toggleAllStreamPort()");
-          var cur_shp = obj.findObject("STREAM_PORT");
+          var cur_shp = obj.findObject("STREAM_PORT"); 
 
           var nextState;
 
@@ -1434,6 +1434,7 @@
           ),   
           $(go.TextBlock,
             {
+              editable: true,
               stretch: go.GraphObject.Horizontal,
               alignment: go.Spot.BottomLeft,
               alignmentFocus: new go.Spot(0,0,0,0),
@@ -1441,9 +1442,11 @@
               margin: 2,
               overflow: go.TextBlock.OverflowEllipsis,
               maxLines: 5,
-              
+              textValidation: function okName(textblock, oldstr, newstr) {
+                                return oldstr === newstr || myDiagram.model.findNodeDataForKey(newstr) === null;
+                              }
             },
-            new go.Binding("text", "NAME").makeTwoWay(),    
+            new go.Binding("text", "key").makeTwoWay(),
           ),
           
           $(go.Shape, "Rectangle",
@@ -1588,7 +1591,7 @@
               overflow: go.TextBlock.OverflowEllipsis,
               maxLines: 5,              
             },
-            new go.Binding("text", "NAME").makeTwoWay(),
+            new go.Binding("text", "key").makeTwoWay(),
           ),
           
           $(go.Shape, "Rectangle",
@@ -1716,7 +1719,7 @@
               maxLines: 5,
               
             },
-            new go.Binding("text", "NAME").makeTwoWay(),   
+            new go.Binding("text", "key").makeTwoWay(),   
           ),
     
           $(go.Shape, "Rectangle",
@@ -1891,7 +1894,7 @@
               maxLines: 5,
               
             },
-            new go.Binding("text", "NAME").makeTwoWay(),
+            new go.Binding("text", "key").makeTwoWay(),
           ),
 
           $(go.Shape, "Rectangle",
@@ -2082,7 +2085,7 @@
               maxLines: 5,
               
             },
-            new go.Binding("text", "NAME").makeTwoWay(), 
+            new go.Binding("text", "key").makeTwoWay(), 
           ),
 
           /*
@@ -2160,13 +2163,22 @@
         {            
             "undoManager.isEnabled": false,            
             "draggingTool.isEnabled": false,  
-            "clickSelectingTool.isEnabled": false,       
+            "clickSelectingTool.isEnabled": true,       
+            hasHorizontalScrollbar: false,
           });
-
+      
       myDiagram_buildUnit.nodeTemplateMap = myDiagram.nodeTemplateMap;
       myDiagram_buildUnit.groupTemplateMap = myDiagram.groupTemplateMap;
       myDiagram_buildUnit.linkTemplate = myDiagram.linkTemplate;
+      
+      myDiagram_buildUnit_selectionPane = $(go.Diagram, "selectionPane",
+      {            
+            "undoManager.isEnabled": false,            
+            "draggingTool.isEnabled": false,  
+            "clickSelectingTool.isEnabled": true,       
+            hasHorizontalScrollbar: false,
 
+          });
       //myDiagram_buildUnit.isEnabled = false;
 
       //myDiagram_buildUnit.model = myDiagram.model;
@@ -2785,7 +2797,7 @@
 
       palette_sthread.layout = $(go.GridLayout, { alignment: go.GridLayout.Location, spacing: new go.Size(5,8)});
 
-      palette_sthread.model.makeUniqueKeyFunction = setKeyUUID;
+    //   palette_sthread.model.makeUniqueKeyFunction = setKeyUUID;
       palette_sthread.maxSelectionCount = 1;
 
       palette_sthread.model.nodeDataArray = [
@@ -2805,14 +2817,50 @@
 
     //
     function setKeyUUID(model, data) {
-      //console.log("NEW setKeyUUID");
-      if (data.key === undefined || model.findNodeDataForKey(data.key) !== null) {
-        //console.log("YES NEW KEY");
-        var new_key = createKeyUUID();
-        return new_key
-      } else {
-        console.log("else?");
-      }
+        console.log("NEW setKeyUUID");
+        var new_name = ""
+        var name_count = 1;
+        // var new_key = createKeyUUID();
+        if(data.category === "processingComponent") {
+            do {
+                new_name = "processing_component_" + name_count;
+                name_count = name_count + 1;
+            }while(model.findNodeDataForKey(new_name) !== null);
+        }
+        else if(data.category === "sourceComponent") {
+            do {
+                new_name = "source_component_" + name_count;
+                name_count = name_count + 1;
+            }while(model.findNodeDataForKey(new_name) !== null);
+        }
+        else if(data.category === "fusionOperator") {
+            do {
+                new_name = "fusion_operator_" + name_count;
+                name_count = name_count + 1;
+            }while(model.findNodeDataForKey(new_name) !== null);
+        }
+        else if(data.category === "factory") {
+            do {
+                new_name = "factory_" + name_count;
+                name_count = name_count + 1;
+            }while(model.findNodeDataForKey(new_name) !== null);
+        }
+        return new_name;
+    //   if (data.key === undefined || model.findNodeDataForKey(data.key) !== null) {
+    //     console.log("YES NEW KEY");
+    //     var new_name = ""
+    //     var name_count = 1;
+    //     // var new_key = createKeyUUID();
+    //     do {
+    //         new_name = "processing_component_" + name_count;
+    //         name_count += 1;
+    //     }while(checkIfNameExists(new_name));
+    //     console.log(new_name)
+    //     return new_name
+    //   } else {
+    //     console.log("else?");
+    //     return "";
+    //   }
     }
     
     // inspector code
@@ -2866,9 +2914,13 @@
       }
 
       function isStreamPort() {
-        return (isStreamInputPort() || isStreamOutputPort() || isStreamDelegationPort()); 
+        var currentObjectName = getCurrentObjectName();
+        return(currentObjectName === "STREAM_UNTYPED_PORT" || (isStreamInputPort() || isStreamOutputPort() || isStreamDelegationPort()));
       }
-
+      function isNotStreamPort() {
+        var currentObjectName = getCurrentObjectName();
+        return !(currentObjectName === "STREAM_UNTYPED_PORT" || (isStreamInputPort() || isStreamOutputPort() || isStreamDelegationPort()));
+      }
       function isChannel(part) {
         return part instanceof go.Link;
       }
@@ -2905,10 +2957,9 @@
           multipleSelection: true,
           propertyModified: function(prop, new_value, inspector) {
             var node = inspector.inspectedObject; 
+            console.log('propertyModefied')
           },
           properties: {
-            "NAME": {},
-
             "BuildUnit": {
               readOnly: isNotComponent,
               multipleSelection: true,
@@ -2946,12 +2997,12 @@
             var node = inspector.inspectedObject; 
 
             var shape = node.findObject("SHAPE");
-            shape.fill = node.data.color;
+            //shape.fill = node.data.color;
           },
           properties: {
             "category": {readOnly: true},            
             "PORT_TYPE": {readOnly: true,  show: isStreamPort },
-            "key": { readOnly: true, show: Inspector.showIfPresent },
+            "key": { readOnly: true, show: isNotStreamPort },
             "group": { readOnly: true, show: Inspector.showIfNode },
             "isGroup": { show: false },
 
@@ -3022,11 +3073,26 @@
     
     startLogConsole();
     
-   
     //newDocument();
     
     // continually update the diagram
+    var m_pos;
+    function resizeSelectionPane(e) {
+        var dx = m_pos - e.x;
+        m_pos = e.x;
+        var panel = document.getElementById("selectionPane");
+        panel.style.width = (parseInt(getComputedStyle(panel, '').width) + dx) + "px";
+        myDiagram_buildUnit.requestUpdate();
+        myDiagram_buildUnit_selectionPane.requestUpdate();
+    }
     document.getElementById("fileOpenMenu").addEventListener("change", handleOpenFile, false);
+    document.getElementById("resizeBorder").addEventListener("mousedown", function(e) {
+        e.preventDefault();
+        document.addEventListener("mousemove", resizeSelectionPane, false);
+    }, false);
+    document.addEventListener("mouseup", function() {
+        document.removeEventListener("mousemove", resizeSelectionPane, false);
+    }, false);
 
     loop();  
       
@@ -3183,6 +3249,7 @@
     // fusion opeartor view window
     $("#infoDraggable_fusionOperator").draggable({ handle: "#infoDraggableHandle_fusionOperator" });
 
+    
     console.log("call init()");
     init();    
   });  
@@ -3692,7 +3759,7 @@ function updateColor_buildUnit() {
   if(document.getElementById("SchematicTab").style.display === "block") currentTab = "SchematicTab";
   else if(document.getElementById("JsonTab").style.display === "block") currentTab = "JsonTab";
   else if(document.getElementById("BuildUnitTab").style.display === "block") currentTab = "BuildUnitTab";
-  else if(document.getElementById("SthreadTab").style.display === "block") currentTab = "SthreadTab";
+  //else if(document.getElementById("SthreadTab").style.display === "block") currentTab = "SthreadTab";
 
   var buildUnit_name;
   var buildUnit_color;
@@ -3881,9 +3948,10 @@ function toggleFusionOperatorWindow() {
       document.getElementById("overviewDiv").style.display = "block";
     } else if(tabName === "BuildUnitTab") {
       document.getElementById("overviewDiv_buildUnit").style.display = "block";
-    } else if(tabName === "SthreadTab") {
-      document.getElementById("overviewDiv_sthread").style.display = "block";
-    }
+    } 
+    // else if(tabName === "SthreadTab") {
+    //   document.getElementById("overviewDiv_sthread").style.display = "block";
+    // }
 
     evt.currentTarget.className += " active";
 
@@ -3954,7 +4022,7 @@ function toggleFusionOperatorWindow() {
 </script>
 
 </head>
-  <body style="margin-top: 0">
+  <body style="margin-top: 0;">
   <div class="container">
     <div id="programTitle"></div>
     <div id="programName" style="display:none">RTOS Splash Schematic Editor</div>
@@ -4078,9 +4146,12 @@ function toggleFusionOperatorWindow() {
   </div>
   
   <div id="BuildUnitTab" class="tabcontent" style="padding: 0px">
-    <div id="buildUnitCanvas" style="width: 100%; height: 645px; display: flex;  justify-content: space-between;">
-      <div id="buildUnitViewer" style="padding: 0px"></div>
-    </div>  
+        <div id="buildUnitCanvas">
+            <div id="buildUnitViewer"></div>
+            <div id="resizeBorder"></div>
+            <div id="selectionPane"></div>
+        </div>  
+        
   </div>
 
   <div id="SthreadTab" class="tabcontent" style="padding: 0px">
@@ -4099,9 +4170,9 @@ function toggleFusionOperatorWindow() {
 
   <div class="tab">
     <button id="SchematicButton" class="tablinks active" onclick="openTab(event, 'SchematicTab')">Schematic</button>
-    <button id="JsonButton" class="tablinks" onclick="openTab(event, 'JsonTab')">Json</button>
     <button id="BuildUnitButton" class="tablinks" onclick="openTab(event, 'BuildUnitTab')">BuildUnit</button>
-    <button id="SthreadButton" class="tablinks" onclick="openTab(event, 'SthreadTab')">Sthread</button>
+    <button id="JsonButton" class="tablinks" onclick="openTab(event, 'JsonTab')">Json</button>
+    <!-- <button id="SthreadButton" class="tablinks" onclick="openTab(event, 'SthreadTab')">Sthread</button> -->
   </div>
 
 
