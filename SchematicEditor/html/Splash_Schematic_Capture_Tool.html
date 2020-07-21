@@ -32,6 +32,104 @@
   <script src="../libraries/Gojs/assets/js/jquery-ui.min.js"></script>
   
   <script id="code">
+            // build unit layout
+            {
+        function CustomLayout() {
+            go.Layout.call(this);
+        }
+
+        go.Diagram.inherit(CustomLayout, go.Layout);
+
+        CustomLayout.prototype.doLayout = function(coll) {
+            coll = this.collectParts(coll);
+
+            var supers = new go.Set(/*go.Node*/);
+            coll.each(function(p) {
+                if (p instanceof go.Node && p.category === "buildUnit") supers.add(p);
+            });
+
+            function membersOf(sup, diag) {
+                var set = new go.Set(/*go.Part*/);
+                var arr = sup.data._members;
+                for (var i = 0; i < arr.length; i++) {
+                var d = arr[i];
+                set.add(diag.findNodeForData(d));
+                }
+                return set;
+            }
+
+            function isReady(sup, supers, diag) {
+                var arr = sup.data._members;
+                for (var i = 0; i < arr.length; i++) {
+                var d = arr[i];
+                if (d.category !== "buildUnit") continue;
+                var n = diag.findNodeForData(d);
+                if (supers.has(n)) return false;
+                }
+                return true;
+            }
+            // implementations of doLayout that do not make use of a LayoutNetwork
+            // need to perform their own transactions
+            this.diagram.startTransaction("Custom Layout");
+
+            while (supers.count > 0) {
+                var ready = null;
+                var it = supers.iterator;
+                while (it.next()) {
+                if (isReady(it.value, supers, this.diagram)) {
+                    ready = it.value;
+                    break;
+                }
+                }
+                supers.remove(ready);
+                var b = this.diagram.computePartsBounds(membersOf(ready, this.diagram));
+                ready.location = b.position;
+                var body = ready.findObject("BODY");
+                if (body) body.desiredSize = b.size;
+            }
+
+            this.diagram.commitTransaction("Custom Layout");
+        };
+        // end CustomLayout
+
+
+        // Define a custom DraggingTool
+        function CustomDraggingTool() {
+            go.DraggingTool.call(this);
+        }
+        go.Diagram.inherit(CustomDraggingTool, go.DraggingTool);
+
+        CustomDraggingTool.prototype.moveParts = function(parts, offset, check) {
+            go.DraggingTool.prototype.moveParts.call(this, parts, offset, check);
+            this.diagram.layoutDiagram(true);
+        };
+
+        CustomDraggingTool.prototype.computeEffectiveCollection = function(parts) {
+            var coll = new go.Set(/*go.Part*/).addAll(parts);
+            var tool = this;
+            parts.each(function(p) {
+                tool.walkSubTree(p, coll);
+            });
+            return go.DraggingTool.prototype.computeEffectiveCollection.call(this, coll);
+            };
+
+            // Find other attached nodes.
+            CustomDraggingTool.prototype.walkSubTree = function(sup, coll) {
+            if (sup === null) return;
+            coll.add(sup);
+            if (sup.category !== "buildUnit") return;
+            // recurse through this super state's members
+            var model = this.diagram.model;
+            var mems = sup.data._members;
+            if (mems) {
+                for (var i = 0; i < mems.length; i++) {
+                var mdata = mems[i];
+                this.walkSubTree(this.diagram.findNodeForData(mdata), coll);
+                }
+            }
+        };
+        // end CustomDraggingTool class
+      }
     var red = "orangered";  // 0 or false
     var green = "forestgreen";  // 1 or true
 
@@ -49,8 +147,8 @@
             {
                 initialDocumentSpot: go.Spot.TopCenter,
                 initialViewportSpot: go.Spot.TopCenter,
-
-
+                draggingTool: $(CustomDraggingTool),
+                layout: $(CustomLayout),
                 
                 "undoManager.isEnabled": true,
                 commandHandler: new DrawCommandHandler(),  // defined in DrawCommandHandler.js
@@ -60,12 +158,12 @@
                 "resizingTool.isGridSnapEnabled" : true,
                 
                 
-                draggingTool: new GuidedDraggingTool(),  // defined in GuidedDraggingTool.js
-                "draggingTool.isGridSnapEnabled": true,  // dragged nodes will snap to a grid of 10x10 cells
-                "draggingTool.horizontalGuidelineColor": "blue",
-                "draggingTool.verticalGuidelineColor": "blue",
-                "draggingTool.centerGuidelineColor": "green",
-                "draggingTool.guidelineWidth": 1,
+                // draggingTool: new GuidedDraggingTool(),  // defined in GuidedDraggingTool.js
+                // "draggingTool.isGridSnapEnabled": true,  // dragged nodes will snap to a grid of 10x10 cells
+                // "draggingTool.horizontalGuidelineColor": "blue",
+                // "draggingTool.verticalGuidelineColor": "blue",
+                // "draggingTool.centerGuidelineColor": "green",
+                // "draggingTool.guidelineWidth": 1,
 
                 
                 
@@ -1232,30 +1330,11 @@
 
         function setBuildUnit_contextMenu(e, obj) {
           var buildUnit_name = prompt("Build Unit name is","Insert Build Unit Name");
-          var options = document.getElementById("select_buildUnit");
-
-          var new_option = document.createElement("option");
-          new_option.value = 1; // display option, default is on
-          new_option.text = buildUnit_name;
-
-          var exist = false;
-
-          if(buildUnit_name === "Insert Build Unit Name") return;
-          else { // add new build unit, if it doesn't exist
-            for(i=0; i<options.length; ++i) {
-              if(options[i].text === buildUnit_name) { // set the build unit for current selected components
-                exist = true;
-              }
-            }
-          }
-
-          if(!exist) {
-            options.add(new_option);
-            // add buildUnit item to json format array
-            var json_buildUnit = {"name":buildUnit_name, "Components":[], "Color":"#ffffff"};
-            buildUnitArray.push(json_buildUnit);
-          }
-
+          var buildUnit_data = {
+                    category: "buildUnit",  
+                    text: buildUnit_name,
+                };
+        myDiagram_buildUnit.model.addNodeData(buildUnit_data);  
           e.diagram.selection.each(function(part) {
             if(part.name === "PROCESSING"
               || part.name === "FUSION"
@@ -1265,6 +1344,62 @@
               part.data.BuildUnit = buildUnit_name;
             }
           });
+        
+        var arr = myDiagram_buildUnit.model.nodeDataArray;
+        for (var i = 0; i < arr.length; i++) {
+            var data = arr[i];
+            var buildUnit = data.BuildUnit;
+            if (buildUnit) {
+                var sdata = myDiagram_buildUnit.model.findNodeDataForKey(buildUnit);
+                if (sdata) {
+                    // update _supers to be an Array of references to node data
+                    if (!data._BuildUnit) {
+                        data._BuildUnit = [sdata];
+                    } else {
+                        data._BuildUnit.push(sdata);
+                    }
+                    // update _members to be an Array of references to node data
+                    if (!sdata._members) {
+                        sdata._members = [data];
+                    } else {
+                        sdata._members.push(data);
+                    }
+                }
+            }
+        }
+        //   var options = document.getElementById("select_buildUnit");
+
+        //   var new_option = document.createElement("option");
+        //   new_option.value = 1; // display option, default is on
+        //   new_option.text = buildUnit_name;
+
+        //   var exist = false;
+        //   console.log(options);
+        //   if(buildUnit_name === "Insert Build Unit Name") return;
+        //   else { // add new build unit, if it doesn't exist
+        //     for(i=0; i<options.length; ++i) {
+        //       if(options[i].text === buildUnit_name) { // set the build unit for current selected components
+        //         exist = true;
+        //       }
+        //     }
+        //   }
+
+        //   if(!exist) {
+        //     options.add(new_option);
+        //     // add buildUnit item to json format array
+        //     // var json_buildUnit = {"name":buildUnit_name, "Components":[], "Color":"#ffffff"};
+        //     // buildUnitArray.push(json_buildUnit);
+        //   }
+
+        //   e.diagram.selection.each(function(part) {
+        //     if(part.name === "PROCESSING"
+        //       || part.name === "FUSION"
+        //       || part.name === "SOURCE"
+        //       || part.name === "SINK"
+        //       || part.name === "FACTORY") {
+        //       part.data.BuildUnit = buildUnit_name;
+        //     }
+        //   });
         }
 
 
@@ -1980,6 +2115,112 @@
         var posY_atFactory;
         var portType_atFactory;
         
+        var template_buildUnit =
+        $(go.Group, "Spot", splash_factoryStyle(),
+          {
+            name: "BUILDUNIT",
+            mouseDragEnter: function(e, grp, prev) {      
+              console.log("mouseDragEnter()");
+            },
+            mouseDragLeave: function(e, grp, next) { 
+              console.log("mouseDragLeave()");           
+            },                          
+
+            memberAdded: function(grp, node) {
+                console.log("memberAdded()");
+            },
+
+            memberValidation: function(grp, node) {
+              console.log("memberValidation")
+              return true;
+            },
+
+            contextMenu:     // define a context menu for each node
+              $("ContextMenu",  // that has one button
+                $("ContextMenuButton",
+                  $(go.TextBlock, {margin: 5, width: 150}, "dissolve BuildUnit"),
+                  { click: function(e, obj) {
+                      return;
+                  } })
+                // more ContextMenuButtons would go here
+            )  // end Adornment
+          },
+          $(go.Shape, "RoundedRectangle",
+            { 
+              name: "SHAPE" ,
+              fill: "white", stroke: "black", parameter1: 10, strokeWidth: 3, 
+              width: 450, height: 250,
+            }, 
+            new go.Binding("width", "WIDTH").makeTwoWay(),
+            new go.Binding("height", "HEIGHT").makeTwoWay(),     
+
+          ),  
+
+          $(go.TextBlock,
+            {
+              stretch: go.GraphObject.Horizontal,
+              alignment: go.Spot.BottomLeft,
+              alignmentFocus: new go.Spot(0,0,0,0),
+              textAlign: "center",
+              margin: 2,
+              overflow: go.TextBlock.OverflowEllipsis,
+              maxLines: 5,
+              
+            },
+            new go.Binding("text", "key").makeTwoWay(), 
+          ),
+
+          /*
+          $(go.TextBlock,
+            {
+              stretch: go.GraphObject.Horizontal,
+              alignment: go.Spot.BottomLeft,
+              alignmentFocus: new go.Spot(0,0,0,0),
+              textAlign: "center",
+              margin: 2,
+              overflow: go.TextBlock.OverflowEllipsis,
+              maxLines: 1,
+              
+            },
+            new go.Binding("text", "MODE").makeTwoWay(),
+          ),
+          */
+          
+          $(go.Shape, "Rectangle",
+            { 
+              name: "AREA_STREAM_INPUT_PORT",
+              stretch: go.GraphObject.Vertical,
+              fill: null, stroke: null, strokeWidth: 0,
+              width: 30,
+              opacity: 0.5,
+              alignment: go.Spot.Left,
+              alignmentFocus: new go.Spot(0,0.5,0,0),
+              }            
+          ),  
+          $(go.Shape, "Rectangle",
+            { 
+              name: "AREA_STREAM_OUTPUT_PORT",
+              stretch: go.GraphObject.Vertical,
+              fill: null, stroke: null, strokeWidth: 0,
+              width: 30,
+              opacity: 0.5,
+              alignment: go.Spot.Right,
+              alignmentFocus: new go.Spot(1,0.5,0,0),              
+              }            
+          ),
+          $(go.Shape, "Rectangle",
+            { 
+              name: "AREA_EVENT_PORT",
+              stretch: go.GraphObject.Horizontal,
+              fill: null, stroke: null, strokeWidth: 0,
+              height: 30,
+              opacity: 0.5,
+              alignment: go.Spot.TopLeft,
+              alignmentFocus: new go.Spot(0,0,0,0),              
+            }  
+            
+          ),
+        ); 
         var template_factory =
         $(go.Group, "Spot", splash_factoryStyle(),
           {
@@ -2154,6 +2395,7 @@
       myDiagram.nodeTemplateMap.add("eventOutputPort", template_eventOutputPort);
       myDiagram.nodeTemplateMap.add("modeChangeInputPort", template_modeChangeInputPort);
       myDiagram.nodeTemplateMap.add("modeChangeOutputPort", template_modeChangeOutputPort); 
+  
       myDiagram.groupTemplateMap.add("sourceComponent", template_sourceComponent);   
       myDiagram.groupTemplateMap.add("sinkComponent", template_sinkComponent);            
       myDiagram.groupTemplateMap.add("fusionOperator", template_fusionOperator);     
@@ -2164,10 +2406,10 @@
       myDiagram.model.nodeDataArray = [ 
 
       ];
-          
-         
+
       myDiagram_buildUnit = $(go.Diagram, "buildUnitViewer",  // create a Diagram for the DIV HTML element
         {            
+            layout: $(CustomLayout),
             "undoManager.isEnabled": false,            
             "draggingTool.isEnabled": false,  
             "clickSelectingTool.isEnabled": true,       
@@ -2266,7 +2508,25 @@
         );  // end Node
     myDiagram_buildUnit_selectionPane.linkTemplate = $(go.Link);
     myDiagram_buildUnit_selectionPane.model = $(go.TreeModel, { nodeParentKeyProperty: "group" });
-    
+    myDiagram_buildUnit.nodeTemplateMap.add("buildUnit",
+        $(go.Node, "Auto",
+          { locationObjectName: "BODY", zOrder: 1 },
+          $(go.Shape, "RoundedRectangle",
+          
+            {
+              fill: "rgba(255, 255, 255, 0.0)", strokeWidth: 1.5, parameter1: 20, strokeDashArray: [4, 2], 
+              spot1: go.Spot.TopLeft, spot2: go.Spot.BottomRight, minSize: new go.Size(30, 30)
+            }),
+          $(go.Panel, "Vertical",
+            { margin: 10 },
+            $(go.TextBlock,
+              { font: "bold 10pt sans-serif", margin: new go.Margin(0, 0, 5, 0) },
+              new go.Binding("text", "key").makeTwoWay()),
+            $(go.Shape,
+              { name: "BODY", opacity: 0 })
+          )
+        ));
+
     //Using this property incorrectly?
     myDiagram_buildUnit_selectionPane.model.nodeParentKeyProperty = "group";
     myDiagram_buildUnit_selectionPane.addModelChangedListener(function(e) {
@@ -2984,6 +3244,9 @@
                 name_count = name_count + 1;
             }while(model.findNodeDataForKey(new_name) !== null);
         }
+        else if(data.category === "buildUnit") {
+            new_name = data.text;
+        }
         return new_name;
     //   if (data.key === undefined || model.findNodeDataForKey(data.key) !== null) {
     //     console.log("YES NEW KEY");
@@ -3174,8 +3437,8 @@
             myDiagram.model = go.Model.fromJson(readString);
             
             var parsedString = JSON.parse(readString);   
-            buildUnitArray = parsedString.buildUnitArray;
-            readBuildUnitProperty();
+            // buildUnitArray = parsedString.buildUnitArray;
+            // readBuildUnitProperty();
             //console.log(myDiagram.model.nodeDataArray);
             //console.log(myDiagram.model.linkDataArray);
 
@@ -3242,6 +3505,30 @@
         document.removeEventListener("mousemove", resizeSelectionPane, false);
     }, false);
 
+    
+
+    var arr = myDiagram_buildUnit.model.nodeDataArray;
+    for (var i = 0; i < arr.length; i++) {
+        var data = arr[i];
+        var buildUnit = data.BuildUnit;
+        if (buildUnit) {
+            var sdata = myDiagram_buildUnit.model.findNodeDataForKey(buildUnit);
+            if (sdata) {
+                // update _supers to be an Array of references to node data
+                if (!data._BuildUnit) {
+                    data._BuildUnit = [sdata];
+                } else {
+                    data._BuildUnit.push(sdata);
+                }
+                // update _members to be an Array of references to node data
+                if (!sdata._members) {
+                    sdata._members = [data];
+                } else {
+                    sdata._members.push(data);
+                }
+            }
+        }
+    }
     loop();  
       
       
@@ -3755,17 +4042,20 @@
 
 <script>
 // build unit
-var buildUnitArray = [];
+// A custom layout that sizes each "Super" node to be big enough to cover all of it member nodes
+    
+
+// var buildUnitArray = [];
 
 function SplashModelToString() {
   var currentModel = myDiagram.model.toJson();
   var currentModel_removeTail = currentModel.substring(0,currentModel.length-1);
   //var buildUnitString = JSON.stringify(buildUnitArray);
-  console.log(buildUnitArray);
+//   console.log(buildUnitArray);
   //console.log(buildUnitString);
 
-  var buildUnitString = buildUnitArrayToString();
-  currentModel = currentModel_removeTail.concat(buildUnitString);
+//   var buildUnitString = buildUnitArrayToString();
+//   currentModel = currentModel_removeTail.concat(buildUnitString);
 
   return currentModel;
 }
@@ -4151,7 +4441,7 @@ function toggleFusionOperatorWindow() {
     myDiagram_buildUnit.model = myDiagram.model;
     myDiagram_buildUnit_selectionPane.requestUpdate();
     myDiagram_buildUnit.requestUpdate();
-    updateColor_buildUnit();
+    // updateColor_buildUnit();
   }
 
   function updateSthreadViewer() {
