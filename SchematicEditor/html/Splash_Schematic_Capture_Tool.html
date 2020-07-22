@@ -837,10 +837,11 @@
                     e.diagram.commandHandler.addTopLevelParts(collection, true));
             if (!ok) e.diagram.currentTool.doCancel();
         }
-        function dissolve_buildUnit(e, obj) {
+        function unset_buildUnit(e, obj) {
             var node = e.diagram.findNodeForKey(obj.part.key);
             e.diagram.remove(node);
         }
+        
       }
 
       // stream port template definition
@@ -1407,11 +1408,15 @@
                     || part.name === "SINK") {
                     // part.data.buildUnit = buildUnit_name;
                     // myDiagram_buildUnit.model.setGroupKeyForNodeData(part.data, buildUnit_name);
+                    if(part.data.buildUnit)
+                        return;
                     myDiagram_buildUnit_selectionPane.model.setParentKeyForNodeData(part.data, buildUnit_name);
                 }
                 else if(part.name === "FACTORY") {
                     var it = part.memberParts;
                     while (it.next()) {
+                        if(it.value.data.buildUnit)
+                            return;
                         myDiagram_buildUnit_selectionPane.model.setParentKeyForNodeData(it.value.data, buildUnit_name);
                     }
                 }
@@ -1472,8 +1477,51 @@
             //     }
             //   });
         }
-
-
+        function setBuildUnit_contextMenu_in_selectionPane(e, obj) {
+            var buildUnit_name;
+            while(true){
+                buildUnit_name = prompt("Build Unit name is","Insert Build Unit Name");  
+                if(!myDiagram.model.findNodeDataForKey(buildUnit_name)) break;
+                alert("Already Exists");
+            }
+            var buildUnit_data = {
+                        category: "buildUnit",  
+                        text: buildUnit_name,
+                    };
+            myDiagram.model.addNodeData(buildUnit_data);  
+            e.diagram.selection.each(function(part) {
+                if(part.data.buildUnit)
+                        return;
+                var data = myDiagram.model.findNodeDataForKey(part.key);
+                myDiagram_buildUnit_selectionPane.model.setParentKeyForNodeData(data, buildUnit_name);
+            });
+            var arr = myDiagram.model.nodeDataArray;
+            for (var i = 0; i < arr.length; i++) {
+                var data = arr[i];
+                var buildUnit = data.buildUnit;
+                if (buildUnit) {
+                    var sdata = myDiagram.model.findNodeDataForKey(buildUnit);
+                    if (sdata) {
+                        // update _supers to be an Array of references to node data
+                        if (!data._buildUnit) {
+                            data._buildUnit = [sdata];
+                        } else {
+                            data._buildUnit.push(sdata);
+                        }
+                        // update _members to be an Array of references to node data
+                        if (!sdata._members) {
+                            sdata._members = [data];
+                        } else {
+                            sdata._members.push(data);
+                        }
+                    }
+                }
+            }
+        }
+        function unsetBuildUnit_contextMenu_in_selectionPane(e, obj) {
+            var node = e.diagram.findNodeForKey(obj.part.key);
+            e.diagram.remove(node);
+        }
         var current_processingComponentKey;
 
         function editSthread_contextMenu(e, obj) {
@@ -1556,10 +1604,18 @@
             contextMenu:     // define a context menu for each node
                 $("ContextMenu",  // that has one button
                   $("ContextMenuButton",
-                    $(go.TextBlock, {margin: 5, width: 150}, "Assign Build Unit"),
+                    $(go.TextBlock, {margin: 5, width: 150}, "Set Build Unit"),
                     { 
                       click: setBuildUnit_contextMenu,
-                    })),
+                    },
+                    new go.Binding("visible", "", 
+                        function(o) {
+                            var data = myDiagram.model.findNodeDataForKey(o.key);
+                            return data.buildUnit === "" || data.buildUnit === undefined
+                        }
+                    )
+                  )
+                ),
           
             mouseDragEnter: function(e, grp, prev) {                              
               isIncoming_toProcessingComponent = true;              
@@ -2206,7 +2262,7 @@
             contextMenu:     // define a context menu for each node
               $("ContextMenu",  // that has one button
                 $("ContextMenuButton",
-                  $(go.TextBlock, {margin: 5, width: 150}, "dissolve BuildUnit"),
+                  $(go.TextBlock, {margin: 5, width: 150}, "Unset BuildUnit"),
                   { click: function(e, obj) {
                       return;
                   } })
@@ -2322,7 +2378,7 @@
                   $(go.TextBlock, {margin: 5, width: 150}, "Save factory as json"),
                   { click: saveFactory }),
                 $("ContextMenuButton",
-                  $(go.TextBlock, {margin: 5, width: 150}, "Assign Build Unit"),
+                  $(go.TextBlock, {margin: 5, width: 150}, "Set Build Unit"),
                   { click: setBuildUnit_contextMenu })
                 // more ContextMenuButtons would go here
             )  // end Adornment
@@ -2419,9 +2475,9 @@
           contextMenu:     // define a context menu for each node
                 $("ContextMenu",  // that has one button
                   $("ContextMenuButton",
-                    $(go.TextBlock, {margin: 5, width: 150}, "dissolve BuildUnit"),
+                    $(go.TextBlock, {margin: 5, width: 150}, "Unset BuildUnit"),
                     { 
-                      click: dissolve_buildUnit
+                      click: unset_buildUnit
                     })
               ) 
           },
@@ -2451,7 +2507,7 @@
             layout: $(CustomLayout),
             "undoManager.isEnabled": false,            
             "draggingTool.isEnabled": false,  
-            "clickSelectingTool.isEnabled": true,       
+            "clickSelectingTool.isEnabled": true, 
             hasHorizontalScrollbar: false,
             "ChangedSelection": function(e) {
                     if (myChangingSelection) return;
@@ -2530,7 +2586,36 @@
       myDiagram_buildUnit_selectionPane.nodeTemplate =
         $(go.Node,
           // no Adornment: instead change panel background color by binding to Node.isSelected
-          { selectionAdorned: false },
+          { 
+            selectionAdorned: false, 
+            contextMenu:     // define a context menu for each node
+                $("ContextMenu",  // that has one button
+                  $("ContextMenuButton",
+                    $(go.TextBlock, {margin: 5, width: 150}, "Set Build Unit"),
+                    { 
+                      click: setBuildUnit_contextMenu_in_selectionPane,
+                    },
+                    new go.Binding("visible", "", 
+                        function(o) {
+                            var data = myDiagram.model.findNodeDataForKey(o.key);
+                            return data.category !== "buildUnit" && ( data.buildUnit === "" || data.buildUnit === undefined)
+                        }
+                    )
+                  ),
+                  $("ContextMenuButton",
+                    $(go.TextBlock, {margin: 5, width: 150}, "Unset Build Unit"),
+                    { 
+                      click: unsetBuildUnit_contextMenu_in_selectionPane,
+                    },
+                    new go.Binding("visible", "", 
+                        function(o) {
+                            var data = myDiagram.model.findNodeDataForKey(o.key);
+                            return data.category === "buildUnit"
+                        }
+                    )
+                  )
+                ),
+          },
           $("TreeExpanderButton",
             {
               width: 14,
