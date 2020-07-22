@@ -208,7 +208,11 @@
                             //console.log("BuildUnit is null string? "+ (part.data.BuildUnit === null) ? "true" : "false");
                         });
                 },
-                
+                "ViewportBoundsChanged": function(e) {
+                //let allowScroll = !e.diagram.viewportBounds.containsRect(e.diagram.documentBounds);
+                // myDiagram_buildUnit_selectionPane.allowVerticalScroll = allowScroll;
+                    console.log("ViewportBoundsChanged");
+                },
                 SelectionCopied: function(e) {
                     console.log("SelectionCopied()");
                     //e.subject.part.key = createKeyUUID();
@@ -275,15 +279,17 @@
 
                     //inheritBuildUnit(e);
                     console.log("ChangingSelection()");
-                    e.diagram.selection.each(function(part){
-                        updateCurrentObject(part);              
-                    });
+                    // e.diagram.selection.each(function(part){
+                    //     updateCurrentObject(part);              
+                    // });
+     
                 },
                 AnimationStarting: function(e) {
                     console.log("AnimationStarting()");
                 },
                 SelectionMoved: function(e) {
                     console.log("SelectionMoved()");
+                    myDiagram_buildUnit.layout.invalidateLayout();
                 },
                 PartResized: function(e) {
                     console.log("PartResized()");
@@ -610,7 +616,7 @@
           if (idx >= 0) currentFile.textContent = currentFile.textContent.substr(0, idx);
         }
       });
-
+      
       palette = new go.Palette("palette");  // create a new Palette in the HTML DIV element "palette"
       // creates relinkable Links that will avoid crossing Nodes when possible and will jump over other Links in their paths
       myDiagram.linkTemplate =
@@ -2470,7 +2476,8 @@
             "ViewportBoundsChanged": function(e) {
                 //let allowScroll = !e.diagram.viewportBounds.containsRect(e.diagram.documentBounds);
                 // myDiagram_buildUnit_selectionPane.allowVerticalScroll = allowScroll;
-                },
+
+            },
             "ChangedSelection": function(e) {
                 if (myChangingSelection) return;
                 myChangingSelection = true;
