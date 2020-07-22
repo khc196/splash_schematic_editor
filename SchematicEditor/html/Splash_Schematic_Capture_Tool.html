@@ -71,7 +71,7 @@
             // implementations of doLayout that do not make use of a LayoutNetwork
             // need to perform their own transactions
             this.diagram.startTransaction("Custom Layout");
-
+            console.log("doLayout: ", this.diagram.div.id);
             while (supers.count > 0) {
                 var ready = null;
                 var it = supers.iterator;
@@ -89,7 +89,6 @@
                     body.desiredSize = b.size;
                 }
             }
-
             this.diagram.commitTransaction("Custom Layout");
         };
         // end CustomLayout
@@ -132,35 +131,6 @@
         };
         // end CustomDraggingTool class
     }
-    function computePlaceholderSize(theDiagram,group) {
-        var minWidth = MINLENGTH;
-        var minHeight = MINBREADTH;
-        var sz;
-        if(group.containingGroup == null){
-            //this is the external group
-            sz = theDiagram.computePartsBounds(group.memberParts);
-            console.log('group coordinates: '+group.actualBounds.x+':'+group.actualBounds.y)
-            console.log('node area coordinates: '+sz.x+':'+sz.y)
-        }else{
-            //this is the internal group
-            sz = group.actualBounds;
-        }
-        
-        return new go.Size(Math.max(minWidth, sz.width), Math.max(minHeight, sz.height));
-    }
-    function GroupResizingTool() {
-        go.ResizingTool.call(this);
-    }
-    go.Diagram.inherit(GroupResizingTool, go.ResizingTool);
-        GroupResizingTool.prototype.computeMinSize = function() {
-        var group = this.adornedObject.part;
-        console.log(group.data)
-        var msz = computeMinPlaceholderSize(); // get the minimum size
-        var sz = computePlaceholderSize(this.diagram,group);
-        msz.width = Math.max(msz.width, sz.width);
-        msz.height = Math.max(msz.height, sz.height);
-        return msz;
-    }
     var red = "orangered";  // 0 or false
     var green = "forestgreen";  // 1 or true
 
@@ -172,23 +142,21 @@
         var internalSelectedObjectName = "NONE";
 
         var $ = go.GraphObject.make;  // for conciseness in defining templates
-        
         myDiagram =
             $(go.Diagram, "SplashCanvas",  // create a new Diagram in the HTML DIV element "SplashCanvas"
             {
                 initialDocumentSpot: go.Spot.TopCenter,
                 initialViewportSpot: go.Spot.TopCenter,
                 draggingTool: $(CustomDraggingTool),
-                layout: $(CustomLayout),
-                
+                layout: $(CustomLayout), 
                 "undoManager.isEnabled": true,
-                commandHandler: new DrawCommandHandler(),  // defined in DrawCommandHandler.js
-                "commandHandler.archetypeGroupData": { isGroup: true, category: "OfNodes" },
+                // commandHandler: new DrawCommandHandler(),  // defined in DrawCommandHandler.js
+                // "commandHandler.archetypeGroupData": { isGroup: true, category: "OfNodes" },
                 
                 //resizingTool: new ResizeMultipleTool(),  // defined in ResizeMultipleTool.js
-                "resizingTool.isGridSnapEnabled" : true,
+                // "resizingTool.isGridSnapEnabled" : true,
                 
-                
+                "animationManager.isEnabled": false,
                 // draggingTool: new GuidedDraggingTool(),  // defined in GuidedDraggingTool.js
                 // "draggingTool.isGridSnapEnabled": true,  // dragged nodes will snap to a grid of 10x10 cells
                 // "draggingTool.horizontalGuidelineColor": "blue",
@@ -219,6 +187,7 @@
 
                 mouseDrop: function(e) { 
                     console.log("mouseDrop");
+                    
                     finishDrop(e, null);
                 },
                 
@@ -309,15 +278,19 @@
                     e.diagram.selection.each(function(part){
                         updateCurrentObject(part);              
                     });
-                    },
-
-                    PartResized: function(e) {
+                },
+                AnimationStarting: function(e) {
+                    console.log("AnimationStarting()");
+                },
+                SelectionMoved: function(e) {
+                    console.log("SelectionMoved()");
+                },
+                PartResized: function(e) {
                     console.log("PartResized()");
+                },
 
-                    },
 
-
-                    LinkDrawn: function(e) {
+                LinkDrawn: function(e) {
                     console.log("LinkDrawn()");
         
                     deactivateAllStreamPort(e.diagram);
@@ -328,11 +301,11 @@
 
                     inspector.inspectObject();
                     inspector2.inspectObject();
-                    myDiagram.selection.each(function(n) {
-                        diagnodes.add(myDiagram_buildUnit_selectionPane.findNodeForData(n.data));
-                    });
-                    myDiagram_buildUnit_selectionPane.clearSelection();
-                    myDiagram_buildUnit_selectionPane.selectCollection(diagnodes);
+                    // myDiagram.selection.each(function(n) {
+                    //     diagnodes.add(myDiagram_buildUnit_selectionPane.findNodeForData(n.data));
+                    // });
+                    // myDiagram_buildUnit_selectionPane.clearSelection();
+                    // myDiagram_buildUnit_selectionPane.selectCollection(diagnodes);
                     myChangingSelection = false;
                 },
                 
@@ -628,6 +601,7 @@
       myDiagram.toolManager.mouseMoveTools.insertAt(0, new PortShiftingTool());
       // when the document is modified, add a "*" to the title and enable the "Save" button
       myDiagram.addDiagramListener("Modified", function(e) {
+          console.log("DiagramListener");
         var currentFile = document.getElementById("currentFile");
         var idx = currentFile.textContent.indexOf("*");
         if (e.diagram.isModified) {
@@ -1386,9 +1360,7 @@
                 else if(part.location.x + part.actualBounds.width > max_right) 
                     max_right = part.location.x + part.actualBounds.width;
             });
-            console.log(min_top, min_left, max_bottom, max_right);
             var size = (max_right - min_left + 100) + " " + (max_bottom - min_top + 100);
-            console.log(size);
             return size;
         }
         function setBuildUnit_contextMenu(e, obj) {
@@ -1401,8 +1373,6 @@
           var buildUnit_data = {
                     category: "buildUnit",  
                     text: buildUnit_name,
-                    loc: calcComponentsLocation(e),
-                    size: calcComponentsSize(e),
                 };
             myDiagram_buildUnit.model.addNodeData(buildUnit_data);  
             e.diagram.selection.each(function(part) {
@@ -1572,7 +1542,7 @@
 
             memberValidation: function(grp, node) {
               console.log("memberValidation()");
-              
+              console.log(node.name)
               var selectedName = node.name;
               
               var grp_loc = new go.Point(0, 0);
@@ -2539,7 +2509,7 @@
     myDiagram_buildUnit_selectionPane.linkTemplate = $(go.Link);
     myDiagram_buildUnit_selectionPane.model = $(go.TreeModel, { nodeParentKeyProperty: "buildUnit" });
     
-
+    
     myDiagram_buildUnit_selectionPane.addModelChangedListener(function(e) {
         if (e.model.skipsUndoManager) return;
         if (myChangingModel) return;
@@ -3686,8 +3656,8 @@
         if (firstTime) {
           myDiagram.delayInitialization(function() { myDiagram.requestUpdate(); });
           myDiagram_buildUnit.delayInitialization(function() { myDiagram_buildUnit.requestUpdate(); });
-          myDiagram_sthread_component.delayInitialization(function() { myDiagram_sthread_component.requestUpdate(); });
-          myDiagram_sthread_sthread.delayInitialization(function() { myDiagram_sthread_sthread.requestUpdate(); });
+        //   myDiagram_sthread_component.delayInitialization(function() { myDiagram_sthread_component.requestUpdate(); });
+        //   myDiagram_sthread_sthread.delayInitialization(function() { myDiagram_sthread_sthread.requestUpdate(); });
           firstTime = false;
         }
         // every time after you need nothing, or in case the Diagram div changed size, this:
@@ -4248,15 +4218,15 @@ function updateColor_buildUnit() {
   else if(document.getElementById("BuildUnitTab").style.display === "block") currentTab = "BuildUnitTab";
   //else if(document.getElementById("SthreadTab").style.display === "block") currentTab = "SthreadTab";
 
-  var buildUnit_name;
-  var buildUnit_color;
-  //var buildUnit_color_defualt = "white";
+//   var buildUnit_name;
+//   var buildUnit_color;
+//   var buildUnit_color_defualt = "white";
 
-  var i;
-  for(i=0; i<buildUnitArray.length; i++) {
-    buildUnit_name = buildUnitArray[i].name;
-    buildUnit_color = buildUnitArray[i].Color;
-    console.log(buildUnit_name + ", " + buildUnit_color);
+//   var i;
+//   for(i=0; i<buildUnitArray.length; i++) {
+//     buildUnit_name = buildUnitArray[i].name;
+//     buildUnit_color = buildUnitArray[i].Color;
+//     console.log(buildUnit_name + ", " + buildUnit_color);
 
     /*
     myDiagram.nodes.each(function(node){ 
@@ -4272,24 +4242,24 @@ function updateColor_buildUnit() {
       }     
     });
     */
-    myDiagram_buildUnit.nodes.each(function(node){ 
-      if(node.data.buildUnit === buildUnit_name) {
-        if(node.name === "SOURCE"
-          || node.name === "SINK"
-          || node.name === "PROCESSING"
-          || node.name === "FUSION") {
-          var shape = node.findObject("SHAPE");
-          // change color of the component
-          shape.fill = buildUnit_color;
-          console.log("change color of "+node.data.key+" to "+shape.fill);
-        } else if(node.name === "FACTORY") {
-          var shape = node.findObject("SHAPE");
-          shape.stroke = buildUnit_color;
-          console.log("change color of "+node.data.key+" to "+shape.fill);
-        }       
-      }     
-    });
-  }
+    // myDiagram_buildUnit.nodes.each(function(node){ 
+    //   if(node.data.buildUnit === buildUnit_name) {
+    //     if(node.name === "SOURCE"
+    //       || node.name === "SINK"
+    //       || node.name === "PROCESSING"
+    //       || node.name === "FUSION") {
+    //       var shape = node.findObject("SHAPE");
+    //       // change color of the component
+    //       shape.fill = buildUnit_color;
+    //       console.log("change color of "+node.data.key+" to "+shape.fill);
+    //     } else if(node.name === "FACTORY") {
+    //       var shape = node.findObject("SHAPE");
+    //       shape.stroke = buildUnit_color;
+    //       console.log("change color of "+node.data.key+" to "+shape.fill);
+    //     }       
+    //   }     
+    // });
+//   }
 }
 
 function setBuildUnit_color() {
@@ -4430,10 +4400,13 @@ function toggleFusionOperatorWindow() {
 
     document.getElementById(tabName).style.display = "block";
     if(tabName === "SchematicTab") {
+      updateSchematicViewer();
       document.getElementById("overviewDiv").style.display = "block";
     } else if(tabName === "JsonTab") {
+      updateJsonViewer();
       document.getElementById("overviewDiv").style.display = "block";
     } else if(tabName === "BuildUnitTab") {
+      updateBuildUnitViewer();
       document.getElementById("overviewDiv_buildUnit").style.display = "block";
     } 
     // else if(tabName === "SthreadTab") {
@@ -4442,10 +4415,6 @@ function toggleFusionOperatorWindow() {
 
     evt.currentTarget.className += " active";
 
-    updateSchematicViewer();
-    updateJsonViewer();
-    updateBuildUnitViewer();
-    updateSthreadViewer();  
   }
 
   function updateSchematicViewer() {
@@ -4460,8 +4429,6 @@ function toggleFusionOperatorWindow() {
   function updateBuildUnitViewer() {
     console.log("updateBuildUnitViewer()");
     myDiagram_buildUnit.model = myDiagram.model;
-    myDiagram_buildUnit_selectionPane.requestUpdate();
-    myDiagram_buildUnit.requestUpdate();
     // updateColor_buildUnit();
   }
 
