@@ -71,7 +71,6 @@
             // implementations of doLayout that do not make use of a LayoutNetwork
             // need to perform their own transactions
             this.diagram.startTransaction("Custom Layout");
-            console.log("doLayout: ", this.diagram.div.id);
             while (supers.count > 0) {
                 var ready = null;
                 var it = supers.iterator;
@@ -569,6 +568,7 @@
 
 
         function finishDrop(e, grp) {      
+            console.log("finishDrop")
             var ok = (grp !== null
             ? grp.addMembers(grp.diagram.selection, true)
             : e.diagram.commandHandler.addTopLevelParts(e.diagram.selection, true));
@@ -813,12 +813,28 @@
           ];
         }
         
-
-          
          function finishDrop_component(e, grp) {
+             console.log("finishDrop_component");
+             var collection = new go.List();
+             
+             grp.diagram.selection.each(function(part) {
+                if(part.category === "buildUnit") {
+                    myDiagram.nodes.each(function(part2) {
+                        if(part2.data.buildUnit === part.key)
+                            collection.add(part2);
+                    })
+                }
+                else {
+                    collection.add(part);
+                }
+             })
             var ok = (grp !== null
-                ? grp.addMembers(grp.diagram.selection, true)
-                : e.diagram.commandHandler.addTopLevelParts(e.diagram.selection, true));
+                ?  
+                    // grp.addMembers(grp.diagram.selection, true) 
+                    grp.addMembers(collection, true) 
+                : 
+                    // e.diagram.commandHandler.addTopLevelParts(e.diagram.selection, true);
+                    e.diagram.commandHandler.addTopLevelParts(collection, true));
             if (!ok) e.diagram.currentTool.doCancel();
         }
         function dissolve_buildUnit(e, obj) {
@@ -1383,7 +1399,7 @@
                         category: "buildUnit",  
                         text: buildUnit_name,
                     };
-            myDiagram_buildUnit.model.addNodeData(buildUnit_data);  
+            myDiagram.model.addNodeData(buildUnit_data);  
             e.diagram.selection.each(function(part) {
                 if(part.name === "PROCESSING"
                     || part.name === "FUSION"
@@ -1400,12 +1416,12 @@
                     }
                 }
             });
-            var arr = myDiagram_buildUnit.model.nodeDataArray;
+            var arr = myDiagram.model.nodeDataArray;
             for (var i = 0; i < arr.length; i++) {
                 var data = arr[i];
                 var buildUnit = data.buildUnit;
                 if (buildUnit) {
-                    var sdata = myDiagram_buildUnit.model.findNodeDataForKey(buildUnit);
+                    var sdata = myDiagram.model.findNodeDataForKey(buildUnit);
                     if (sdata) {
                         // update _supers to be an Array of references to node data
                         if (!data._buildUnit) {
@@ -1556,7 +1572,6 @@
 
             memberValidation: function(grp, node) {
               console.log("memberValidation()");
-              console.log(node.name)
               var selectedName = node.name;
               
               var grp_loc = new go.Point(0, 0);
@@ -2236,6 +2251,7 @@
             },                          
 
             memberAdded: function(grp, node) {
+                console.log("memberAdded");
             	if(node.name === "FACTORY") {
             		grp.zOrder = node.zOrder-1;
                 console.log("yes factory");
@@ -2243,9 +2259,8 @@
             },
 
             memberValidation: function(grp, node) {
-              //console.log("memberValidation()");
+              console.log("memberValidation()");
               var selectedName = node.name;
-              
               var grp_loc = new go.Point(0, 0);
               var node_loc = new go.Point(0, 0);
               
@@ -2256,7 +2271,6 @@
                 grp_loc = grp.location;
                 node_loc = node.location;
               }
-
               if(selectedName === "STREAM_UNTYPED_PORT" 
               || selectedName === "STREAM_INPUT_PORT" 
               || selectedName === "STREAM_OUTPUT_PORT"
@@ -3524,12 +3538,12 @@
 
     
 
-    var arr = myDiagram_buildUnit.model.nodeDataArray;
+    var arr = myDiagram.model.nodeDataArray;
     for (var i = 0; i < arr.length; i++) {
         var data = arr[i];
         var buildUnit = data.buildUnit;
         if (buildUnit) {
-            var sdata = myDiagram_buildUnit.model.findNodeDataForKey(buildUnit);
+            var sdata = myDiagram.model.findNodeDataForKey(buildUnit);
             if (sdata) {
                 // update _supers to be an Array of references to node data
                 if (!data._buildUnit) {
