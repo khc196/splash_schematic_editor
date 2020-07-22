@@ -821,7 +821,10 @@
                 : e.diagram.commandHandler.addTopLevelParts(e.diagram.selection, true));
             if (!ok) e.diagram.currentTool.doCancel();
         }
-          
+        function dissolve_buildUnit(e, obj) {
+            var node = e.diagram.findNodeForKey(obj.part.key);
+            e.diagram.remove(node);
+        }
       }
 
       // stream port template definition
@@ -1370,27 +1373,32 @@
             return size;
         }
         function setBuildUnit_contextMenu(e, obj) {
-          var buildUnit_name;
-          while(true){
-            buildUnit_name = prompt("Build Unit name is","Insert Build Unit Name");  
-            if(!myDiagram.model.findNodeDataForKey(buildUnit_name)) break;
-            alert("Already Exists");
-          }
-          var buildUnit_data = {
-                    category: "buildUnit",  
-                    text: buildUnit_name,
-                };
+            var buildUnit_name;
+            while(true){
+                buildUnit_name = prompt("Build Unit name is","Insert Build Unit Name");  
+                if(!myDiagram.model.findNodeDataForKey(buildUnit_name)) break;
+                alert("Already Exists");
+            }
+            var buildUnit_data = {
+                        category: "buildUnit",  
+                        text: buildUnit_name,
+                    };
             myDiagram_buildUnit.model.addNodeData(buildUnit_data);  
             e.diagram.selection.each(function(part) {
-            if(part.name === "PROCESSING"
-                || part.name === "FUSION"
-                || part.name === "SOURCE"
-                || part.name === "SINK"
-                || part.name === "FACTORY") {
-                // part.data.buildUnit = buildUnit_name;
-                // myDiagram_buildUnit.model.setGroupKeyForNodeData(part.data, buildUnit_name);
-                myDiagram_buildUnit_selectionPane.model.setParentKeyForNodeData(part.data, buildUnit_name);
-            }
+                if(part.name === "PROCESSING"
+                    || part.name === "FUSION"
+                    || part.name === "SOURCE"
+                    || part.name === "SINK") {
+                    // part.data.buildUnit = buildUnit_name;
+                    // myDiagram_buildUnit.model.setGroupKeyForNodeData(part.data, buildUnit_name);
+                    myDiagram_buildUnit_selectionPane.model.setParentKeyForNodeData(part.data, buildUnit_name);
+                }
+                else if(part.name === "FACTORY") {
+                    var it = part.memberParts;
+                    while (it.next()) {
+                        myDiagram_buildUnit_selectionPane.model.setParentKeyForNodeData(it.value.data, buildUnit_name);
+                    }
+                }
             });
             var arr = myDiagram_buildUnit.model.nodeDataArray;
             for (var i = 0; i < arr.length; i++) {
@@ -2299,9 +2307,9 @@
                 $("ContextMenuButton",
                   $(go.TextBlock, {margin: 5, width: 150}, "Save factory as json"),
                   { click: saveFactory }),
-                // $("ContextMenuButton",
-                //   $(go.TextBlock, {margin: 5, width: 150}, "Assign Build Unit"),
-                //   { click: setBuildUnit_contextMenu })
+                $("ContextMenuButton",
+                  $(go.TextBlock, {margin: 5, width: 150}, "Assign Build Unit"),
+                  { click: setBuildUnit_contextMenu })
                 // more ContextMenuButtons would go here
             )  // end Adornment
           },
@@ -2391,7 +2399,18 @@
       myDiagram.nodeTemplateMap.add("modeChangeOutputPort", template_modeChangeOutputPort); 
       myDiagram.nodeTemplateMap.add("buildUnit",
         $(go.Node, "Auto",
-          { locationObjectName: "BODY", zOrder: 1 },
+          { 
+              locationObjectName: "BODY", 
+          zOrder: 1, 
+          contextMenu:     // define a context menu for each node
+                $("ContextMenu",  // that has one button
+                  $("ContextMenuButton",
+                    $(go.TextBlock, {margin: 5, width: 150}, "dissolve BuildUnit"),
+                    { 
+                      click: dissolve_buildUnit
+                    })
+              ) 
+          },
           $(go.Shape, "RoundedRectangle",
           
             {
