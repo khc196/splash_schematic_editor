@@ -315,6 +315,7 @@
   text-align: center;
   font: bold 12px sans-serif;
   border: 1px solid #000000;
+  margin-bottom: 5px;
 }
 
 #overviewDiv {
@@ -411,4 +412,42 @@ splashHighlight {
   font-weight: bold;
   font-size: 18px;
   font-style: italic;
+}
+#myInfo_fusionOperator {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+#selected_fusionOperator {
+  width: 100%;
+}
+#selectedInfo_fusionOperator_rule_optionalNum {
+  width: 100%;
+}
+#selectedInfo_fusionOperator_rule_correlation {
+  width: 100%;
+}
+#myInfo_fusionOperator_mandatory_ports {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  width: 100%;
+}
+#myInfo_fusionOperator_mandatory_ports_leftValues {
+  width: 200px;
+}
+#myInfo_fusionOperator_mandatory_ports_rightValues {
+  width: 200px;
+}
+#myInfo_fusionOperator_btn_div {
+  display: flex;
+  flex-direction: row;
+}
+#myInfo_fusionOperator_btn_confirm {
+  width: 50%;
+}
+#myInfo_fusionOperator_btn_cancel {
+  width: 50%;
 }

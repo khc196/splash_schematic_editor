@@ -1567,6 +1567,9 @@
             var node = e.diagram.findNodeForKey(obj.part.key);
             e.diagram.remove(node);
         }
+        function configureFusionRule_contextMenu(e, obj) {
+            toggleFusionOperatorWindow()
+        }
         var current_processingComponentKey;
 
         function editSthread_contextMenu(e, obj) {
@@ -2099,7 +2102,27 @@
         $(go.Group, "Spot", splash_atomicComponentStyle(),
           {
             name: "FUSION",
-            
+            contextMenu:     // define a context menu for each node
+                $("ContextMenu",  // that has one button
+                  $("ContextMenuButton",
+                    $(go.TextBlock, {margin: 5, width: 150}, "Set Build Unit"),
+                    { 
+                      click: setBuildUnit_contextMenu,
+                    },
+                    new go.Binding("visible", "", 
+                        function(o) {
+                            var data = myDiagram.model.findNodeDataForKey(o.key);
+                            return data.buildUnit === "" || data.buildUnit === undefined
+                        }
+                    )
+                  ),
+                  $("ContextMenuButton",
+                    $(go.TextBlock, {margin: 5, width: 150}, "Configure Fusion Rule"),
+                    { 
+                      click: configureFusionRule_contextMenu,
+                    },
+                  ),
+                ),
             mouseDragEnter: function(e, grp, prev) {      
               //console.log("mouseDragEnter()");
               isIncoming_toFusionOperator = true;              
@@ -3360,10 +3383,9 @@
 
 
     // build unit and fusion operator view window
-    // myDiagram.addDiagramListener("ChangedSelection", function(diagramEvent) {
-    //     var idrag_buildUnit = document.getElementById("infoDraggable_buildUnit");
-    //     var idrag_fusionOperator = document.getElementById("infoDraggable_fusionOperator");
-    // });
+    myDiagram.addDiagramListener("ChangedSelection", function(diagramEvent) {
+        var idrag_fusionOperator = document.getElementById("infoDraggable_fusionOperator");
+    });
 
 
 
@@ -3400,6 +3422,12 @@
         }
         else if(data.category === "buildUnit") {
             new_name = data.text;
+        }
+        else if(data.category === "streamPort") {
+            do {
+                new_name = "stream_port_" + name_count;
+                name_count = name_count + 1;
+            }while(model.findNodeDataForKey(new_name) !== null);
         }
         return new_name;
     //   if (data.key === undefined || model.findNodeDataForKey(data.key) !== null) {
@@ -3516,24 +3544,8 @@
             console.log('propertyModefied')
           },
           properties: {
-            "buildUnit": {
-              readOnly: isNotComponent,
-              multipleSelection: true,
-              type: "select",
-              choices: function(node, propName) {
-                var options_buildUnit = document.getElementById("select_buildUnit");
-                var options_choices = [];
-                options_choices[0] = "";
-
-                for(i=0; i<options_buildUnit.length; ++i) {
-                  options_choices[i+1] = options_buildUnit[i].text;              
-                }
-                return options_choices;
-              }
-            },
-
-            "DataType": {readOnly: isChannel, show: hasDataType},
-
+            
+            // "DataType": {readOnly: isChannel, show: hasDataType},
             "Freshness": {show: hasFreshness, type: "number"},
             "Rate": {show: hasRate, type: "number"},
 
@@ -3558,7 +3570,7 @@
           properties: {
             "category": {readOnly: true},            
             "PORT_TYPE": {readOnly: true,  show: isStreamPort },
-            "key": { readOnly: true, show: isNotStreamPort },
+            "key": { readOnly: true },
             "group": { readOnly: true, show: Inspector.showIfNode },
             "isGroup": { show: false },
 
@@ -4846,49 +4858,65 @@ function toggleFusionOperatorWindow() {
       </div>
   </div>
 
-  <div id="infoDraggable_fusionOperator" class="draggable" style="z-index: 9; visibility: hidden; display: inline-block; vertical-align: top; padding: 5px; top: 350px; left: 20px;  height: 240px; width: 300px">
-    <div id="infoDraggableHandle_fusionOperator" class="handle">Fusion Operator</div>
-      <div>
-        <div id="myInfo_fusionOperator"></div>
-          <div style="font-size: 13px; position: absolute; left: 10px; top: 25px;">key :</div>
-          <input type="text" id="selected_fusionOperator" readonly style="width: 242px; position: absolute; left: 45px; top: 23px;">
-          <form style="position: absolute; left: 0px top: 0px;">
-            <select id="select_fusionOperator_rule" size="8" onchange="infoFusionOperator_rule()" style="position: absolute; height: 140px; width: 110px; top: 20px;" >
-            </select>
-          </form>
-          <input type="text" id="newName_fusionOperator_rule" style="position: absolute; left: 5px; top: 185px; width: 110px"><br>
-          <button type="button" onclick="addFusionOperator_rule()" style="position: absolute; left: 5px; top: 207px; width: 140px;">Add FusionRule</button>
-          <button type="button" onclick="removeFusionOperator_rule()" style="position: absolute; left: 147px; top: 207px; width: 140px;">Remove FusionRule</button>
-          <div style="font-size: 13px; position: absolute; left: 125px; top: 50px;">Name:</div>
-          <input type="text" id="selectedInfo_fusionOperator_rule_name" readonly style="width: 117px; position: absolute; left: 170px; top: 45px;">
-          <div style="font-size: 13px; position: absolute; left: 125px; top: 70px;">Optional #:</div>
-          <input type="text" id="selectedInfo_fusionOperator_rule_optionalNum" style="width: 55px; position: absolute; left: 190px; top: 67px;">
-          <button type="button" onclick="setOptionalNum_fusionOperator()" style="position: absolute; left: 247px; top: 67px; width: 40px;">Set</button>
-          <div style="font-size: 13px; position: absolute; left: 125px; top: 93px;">Correlation:</div>
-          <input type="text" id="selectedInfo_fusionOperator_rule_correlation" style="width: 50px; position: absolute; left: 195px; top: 89px;">
-          <button type="button" onclick="setCorrelation_fusionOperator()" style="position: absolute; left: 247px; top: 89px; width: 40px;">Set</button>
-          <div style="font-size: 13px; position: absolute; left: 125px; top: 113px;">InputPort key:</div>
-          <input type="text" id="selected_inputPort_fusionOperator" readonly style="width: 167px; position: absolute; left: 120px; top: 130px;">
-          <input type="radio" name="inputType" value="man" style="position: absolute; left: 115px; top: 153px;">
-          <div style="font-size: 10px; position: absolute; left: 140px; top: 157px;">Mandatory</div>
-          <input type="radio" name="inputType" value="opt" style="position: absolute; left: 115px; top: 170px;">
-          <div style="font-size: 10px; position: absolute; left: 140px; top: 174px;">Optional</div>
-          <input type="radio" name="inputType" value="none" style="position: absolute; left: 115px; top: 187px;">
-          <div style="font-size: 10px; position: absolute; left: 140px; top: 191px;">Don't care</div>
-
-
+  <div id="infoDraggable_fusionOperator" class="draggable" style="z-index: 9; visibility: hidden; display: inline-block; vertical-align: top; padding: 5px; top: 350px; left: 20px;  height: 300px; width: 500px">
+    <div id="myInfo_fusionOperator">
+        <div>
+            <div id="infoDraggableHandle_fusionOperator" class="handle">Fusion Rule Configuration</div>
+            <div style="margin-bottom: 5px;">
+                <div id="myInfo_fusionOperator_name">Name</div>
+                <input type="text" id="selected_fusionOperator" readonly>
+            </div>
+            <div style="margin-bottom: 5px;">
+                <div id="myInfo_fusionOperator_mandatory_ports">
+                    <div>
+                        <div>
+                            Optional Ports
+                        </div>
+                        <div>
+                            <select id="myInfo_fusionOperator_mandatory_ports_leftValues" size="5" multiple></select>
+                        </div>
+                    </div>
+                    <div style="display:flex; flex-direction: column; align-self: center;">
+                        <input type="button" id="myInfo_fusionOperator_mandatory_ports_add" value="&lt;&lt;" />
+                        <input type="button" id="myInfo_fusionOperator_mandatory_ports_del" value="&gt;&gt;" />
+                    </div>
+                    <div>
+                        <div>
+                            Mandatory Ports
+                        </div>
+                        <div>
+                            <select id="myInfo_fusionOperator_mandatory_ports_rightValues" size="5" multiple></select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-bottom: 5px;">
+                <div id="myInfo_fusionOperator_optional_port_threshold">
+                    Optional Ports Threshold
+                </div>
+                <input type="text" id="selectedInfo_fusionOperator_rule_optionalNum">
+            </div>
+            <div>
+                <div id="myInfo_fusionOperator_correlation">Correlation</div>
+                <input type="text" id="selectedInfo_fusionOperator_rule_correlation">
+            </div>
+        </div>
+        <div id ="myInfo_fusionOperator_btn_div">
+            <button id="myInfo_fusionOperator_btn_confirm"type="button" onclick="">Confirm</button>
+            <button id="myInfo_fusionOperator_btn_cancel"type="button" onclick="">Cancel</button>
+        </div>
 <!--           <input type="text" id="newName_buildUnit" style="position: absolute; left: 5px; top: 145px; width: 100px"><br>
-          <button type="button" onclick="addBuildUnit()" style="position: absolute; left: 5px; top: 167px; width: 100px;">Add BuildUnit</button>
-          <button type="button" onclick="removeBuildUnit()" style="position: absolute; left: 110px; top: 167px; width: 130px;">Remove BuildUnit</button>
-          <div style="font-size: 13px; position: absolute; left: 118px; top: 32px;">Name:</div>
-          <input type="text" id="selectedInfo_buildUnit_name" readonly style="width: 125px; position: absolute; left: 160px; top: 30px;">
-          <div  style="font-size: 13px; position: absolute; left: 118px; top: 57px;">Veiw:</div> 
-          <input type="checkbox" id="selectedInfo_buildUnit_view" onclick="toggleView_buildUnit()" style="position: absolute; left: 156px; top: 57px;"> 
+    <button type="button" onclick="addBuildUnit()" style="position: absolute; left: 5px; top: 167px; width: 100px;">Add BuildUnit</button>
+    <button type="button" onclick="removeBuildUnit()" style="position: absolute; left: 110px; top: 167px; width: 130px;">Remove BuildUnit</button>
+    <div style="font-size: 13px; position: absolute; left: 118px; top: 32px;">Name:</div>
+    <input type="text" id="selectedInfo_buildUnit_name" readonly style="width: 125px; position: absolute; left: 160px; top: 30px;">
+    <div  style="font-size: 13px; position: absolute; left: 118px; top: 57px;">Veiw:</div> 
+    <input type="checkbox" id="selectedInfo_buildUnit_view" onclick="toggleView_buildUnit()" style="position: absolute; left: 156px; top: 57px;"> 
 
-          <div  style="font-size: 13px; position: absolute; left: 135px; top: 135px;">Only view checked <br> build unit</div> 
-          <input type="checkbox" id="onlyViewCheckedBuildUnit" onclick="updateShow_buildUnit()" style="position: absolute; left: 110px; top: 140px;">  -->
-        
-      </div>
+    <div  style="font-size: 13px; position: absolute; left: 135px; top: 135px;">Only view checked <br> build unit</div> 
+    <input type="checkbox" id="onlyViewCheckedBuildUnit" onclick="updateShow_buildUnit()" style="position: absolute; left: 110px; top: 140px;">  -->
+    
+    </div>
   </div>
 
 
