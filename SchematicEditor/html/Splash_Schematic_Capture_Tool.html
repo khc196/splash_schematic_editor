@@ -2700,204 +2700,198 @@
             myDiagram_buildUnit_selectionPane.requestUpdate();
         });
       // SthreadTab component view
-      myDiagram_sthread_component = $(go.Diagram, "SthreadViewer_component",
-        {
-            "undoManager.isEnabled": false,            
-            "draggingTool.isEnabled": false,  
-            "clickSelectingTool.isEnabled": false,   
-        });
+    //   myDiagram_sthread_component = $(go.Diagram, "SthreadViewer_component",
+    //     {
+    //         "undoManager.isEnabled": false,            
+    //         "draggingTool.isEnabled": false,  
+    //         "clickSelectingTool.isEnabled": false,   
+    //     });
 
-      myDiagram_sthread_component.nodeTemplateMap = myDiagram.nodeTemplateMap;
-      myDiagram_sthread_component.groupTemplateMap = myDiagram.groupTemplateMap;
-      myDiagram_sthread_component.linkTemplate = myDiagram.linkTemplate;
-
-
+    //   myDiagram_sthread_component.nodeTemplateMap = myDiagram.nodeTemplateMap;
+    //   myDiagram_sthread_component.groupTemplateMap = myDiagram.groupTemplateMap;
+    //   myDiagram_sthread_component.linkTemplate = myDiagram.linkTemplate;
 
 
 
-      {
-        function togglePortAndSthread(current_diagram, obj) {
-          var cur_shp = obj.findObject("STHREAD");
-          var nextState;
-          nextState = !cur_shp.toLinkable;  
 
-          console.log("togglePortAndSthread:"+nextState);
-          toggleAllStreamPort(current_diagram, obj);
-          togglePortAndSthread_sync(current_diagram, nextState);          
-        }
 
-        function togglePortAndSthread_sync(current_diagram, nextState) {
+    //   {
+    //     function togglePortAndSthread(current_diagram, obj) {
+    //       var cur_shp = obj.findObject("STHREAD");
+    //       var nextState;
+    //       nextState = !cur_shp.toLinkable;  
 
-          current_diagram.nodes.each(function(node) {
-            if (node.name === "DEDICATE_STHREAD" 
-                || node.name === "INTERNAL_STHREAD") {
-              var shp = node.findObject("STHREAD");
-              if(nextState === true) { 
-                shp.toLinkable = true;
-                shp.fromLinkable = true;
-                shp.stroke = "#FF00FF";
-                shp.strokeWidth = 2;
-                console.log("togglePortAndSthread_sync: true");
-              } else {             
-                shp.toLinkable = false;
-                shp.fromLinkable = false;
-                shp.stroke = "transparent";
-                shp.strokeWidth = 1;
-                console.log("togglePortAndSthread_sync: false");
-              }
-              updateStates(current_diagram);  
-            }
-          });
-          toggleAllStreamPort_sync(current_diagram, nextState);
-        }
+    //       console.log("togglePortAndSthread:"+nextState);
+    //       toggleAllStreamPort(current_diagram, obj);
+    //       togglePortAndSthread_sync(current_diagram, nextState);          
+    //     }
 
-        function activatePortAndSthread(current_diagram) {
-          togglePortAndSthread_sync(current_diagram, true);
-        }
+    //     function togglePortAndSthread_sync(current_diagram, nextState) {
 
-        function deactivatePortAndSthread(current_diagram) {
-          togglePortAndSthread_sync(current_diagram, false);
-        }
+    //       current_diagram.nodes.each(function(node) {
+    //         if (node.name === "DEDICATE_STHREAD" 
+    //             || node.name === "INTERNAL_STHREAD") {
+    //           var shp = node.findObject("STHREAD");
+    //           if(nextState === true) { 
+    //             shp.toLinkable = true;
+    //             shp.fromLinkable = true;
+    //             shp.stroke = "#FF00FF";
+    //             shp.strokeWidth = 2;
+    //             console.log("togglePortAndSthread_sync: true");
+    //           } else {             
+    //             shp.toLinkable = false;
+    //             shp.fromLinkable = false;
+    //             shp.stroke = "transparent";
+    //             shp.strokeWidth = 1;
+    //             console.log("togglePortAndSthread_sync: false");
+    //           }
+    //           updateStates(current_diagram);  
+    //         }
+    //       });
+    //       toggleAllStreamPort_sync(current_diagram, nextState);
+    //     }
 
-        function splash_sthreadNodeStyle() {
-          return [new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
-          new go.Binding("isShadowed", "isSelected").ofObject(),
-          {
-            selectionAdorned: false,
-            shadowOffset: new go.Point(0, 0),
-            shadowBlur: 15,
-            shadowColor: "blue",
-            resizable: false,
-            toolTip: sharedToolTip,
-            resizeObjectName: "SHAPE",
-            visible: true,
-            selectionChanged: function(p) {
-              p.zOrder = (p.isSelected ? 11 : 10);
-            },
-          }];
-        }
+    //     function activatePortAndSthread(current_diagram) {
+    //       togglePortAndSthread_sync(current_diagram, true);
+    //     }
 
-        function splash_sthreadShapeStyle() {
-          return {            
-            name: "STHREAD",
-            desiredSize: new go.Size(80, 100),
-            fill: "transparent",
-            fromSpot: go.Spot.Right,
-            fromLinkable: false,
-            fromMaxLinks: Number.MAX_VALUE,
-            toSpot: go.Spot.Left,
-            toLinkable: false,
-            toMaxLinks: 1,
-            stroke: "transparent",
-            cursor: "pointer",
-          };
-        }
+    //     function deactivatePortAndSthread(current_diagram) {
+    //       togglePortAndSthread_sync(current_diagram, false);
+    //     }
+
+    //     function splash_sthreadNodeStyle() {
+    //       return [new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
+    //       new go.Binding("isShadowed", "isSelected").ofObject(),
+    //       {
+    //         selectionAdorned: false,
+    //         shadowOffset: new go.Point(0, 0),
+    //         shadowBlur: 15,
+    //         shadowColor: "blue",
+    //         resizable: false,
+    //         toolTip: sharedToolTip,
+    //         resizeObjectName: "SHAPE",
+    //         visible: true,
+    //         selectionChanged: function(p) {
+    //           p.zOrder = (p.isSelected ? 11 : 10);
+    //         },
+    //       }];
+    //     }
+
+    //     function splash_sthreadShapeStyle() {
+    //       return {            
+    //         name: "STHREAD",
+    //         desiredSize: new go.Size(80, 100),
+    //         fill: "transparent",
+    //         fromSpot: go.Spot.Right,
+    //         fromLinkable: false,
+    //         fromMaxLinks: Number.MAX_VALUE,
+    //         toSpot: go.Spot.Left,
+    //         toLinkable: false,
+    //         toMaxLinks: 1,
+    //         stroke: "transparent",
+    //         cursor: "pointer",
+    //       };
+    //     }
                  
-        var template_dedicatedSthread = 
-          $(go.Node, "Spot", splash_sthreadNodeStyle(),
-            { 
-              name: "DEDICATE_STHREAD",
-              zOrder : 10,  
-            },
-          $(go.Shape, "RoundedRectangle",
-            {               
-              fill: "white", stroke: "black", parameter1: 10, strokeWidth: 1.5, strokeDashArray: [5,3],
-              width: 80, height: 100,
-            }),
-          $(go.Shape, "BpmnActivityAdHoc",
-            {               
-              fill: "white", stroke: "black", angle: 90, strokeWidth: 4, alignment: new go.Spot(0.5, 0.35), 
-              width: 40, height: 40,
-            }),
-          $(go.TextBlock,
-            {
-              text: "Dedicated Sthread",
-              alignment: new go.Spot(0.5, 0.75),
-              textAlign: "center",
-              width: 60,
-              margin: 2,
-              overflow: go.TextBlock.OverflowEllipsis,
-              maxLines: 2,              
-            },
-          ),
-          $(go.Shape, "RoundedRectangle", splash_sthreadShapeStyle(),                           
-            { portId: "", parameter1: 10, strokeWidth: 1.5, alignment: new go.Spot(0.5, 0.5) },
-          ),
-          { doubleClick: function(e, obj) {
-              e.diagram.startTransaction("Toggle Input");
-              togglePortAndSthread(e.diagram,obj);
-              e.diagram.commitTransaction("Toggle Input");
-          }}
-        );
+    //     var template_dedicatedSthread = 
+    //       $(go.Node, "Spot", splash_sthreadNodeStyle(),
+    //         { 
+    //           name: "DEDICATE_STHREAD",
+    //           zOrder : 10,  
+    //         },
+    //       $(go.Shape, "RoundedRectangle",
+    //         {               
+    //           fill: "white", stroke: "black", parameter1: 10, strokeWidth: 1.5, strokeDashArray: [5,3],
+    //           width: 80, height: 100,
+    //         }),
+    //       $(go.Shape, "BpmnActivityAdHoc",
+    //         {               
+    //           fill: "white", stroke: "black", angle: 90, strokeWidth: 4, alignment: new go.Spot(0.5, 0.35), 
+    //           width: 40, height: 40,
+    //         }),
+    //       $(go.TextBlock,
+    //         {
+    //           text: "Dedicated Sthread",
+    //           alignment: new go.Spot(0.5, 0.75),
+    //           textAlign: "center",
+    //           width: 60,
+    //           margin: 2,
+    //           overflow: go.TextBlock.OverflowEllipsis,
+    //           maxLines: 2,              
+    //         },
+    //       ),
+    //       $(go.Shape, "RoundedRectangle", splash_sthreadShapeStyle(),                           
+    //         { portId: "", parameter1: 10, strokeWidth: 1.5, alignment: new go.Spot(0.5, 0.5) },
+    //       ),
+    //       { doubleClick: function(e, obj) {
+    //           e.diagram.startTransaction("Toggle Input");
+    //           togglePortAndSthread(e.diagram,obj);
+    //           e.diagram.commitTransaction("Toggle Input");
+    //       }}
+    //     );
 
         
-        var template_internalSthread = 
-          $(go.Node, "Spot", splash_sthreadNodeStyle(),
-            { 
-              name: "INTERNAL_STHREAD",
-              zOrder : 10,  
-            },
-          $(go.Shape, "RoundedRectangle",
-            {               
-              fill: "white", stroke: "black", parameter1: 10, strokeWidth: 1.5, strokeDashArray: [5,3],
-              width: 80, height: 100,
-            }),
-          $(go.Shape, "BpmnActivityAdHoc",
-            {               
-              fill: "white", stroke: "black", angle: 90, strokeWidth: 4, alignment: new go.Spot(0.5, 0.35), 
-              width: 40, height: 40,
-            }),
-          $(go.TextBlock,
-            {
-              text: "Internal Sthread",
-              alignment: new go.Spot(0.5, 0.75),
-              textAlign: "center",
-              width: 60,
-              margin: 2,
-              overflow: go.TextBlock.OverflowEllipsis,
-              maxLines: 2,              
-            },            
-          ),
-          $(go.Shape, "RoundedRectangle", splash_sthreadShapeStyle(),                           
-            { portId: "", alignment: new go.Spot(0.5, 0.5) },
-          ),
-          { doubleClick: function(e, obj) {
-              e.diagram.startTransaction("Toggle Input");
-              togglePortAndSthread(e.diagram,obj);
-              e.diagram.commitTransaction("Toggle Input");
-          }}
-        );
+    //     var template_internalSthread = 
+    //       $(go.Node, "Spot", splash_sthreadNodeStyle(),
+    //         { 
+    //           name: "INTERNAL_STHREAD",
+    //           zOrder : 10,  
+    //         },
+    //       $(go.Shape, "RoundedRectangle",
+    //         {               
+    //           fill: "white", stroke: "black", parameter1: 10, strokeWidth: 1.5, strokeDashArray: [5,3],
+    //           width: 80, height: 100,
+    //         }),
+    //       $(go.Shape, "BpmnActivityAdHoc",
+    //         {               
+    //           fill: "white", stroke: "black", angle: 90, strokeWidth: 4, alignment: new go.Spot(0.5, 0.35), 
+    //           width: 40, height: 40,
+    //         }),
+    //       $(go.TextBlock,
+    //         {
+    //           text: "Internal Sthread",
+    //           alignment: new go.Spot(0.5, 0.75),
+    //           textAlign: "center",
+    //           width: 60,
+    //           margin: 2,
+    //           overflow: go.TextBlock.OverflowEllipsis,
+    //           maxLines: 2,              
+    //         },            
+    //       ),
+    //       $(go.Shape, "RoundedRectangle", splash_sthreadShapeStyle(),                           
+    //         { portId: "", alignment: new go.Spot(0.5, 0.5) },
+    //       ),
+    //       { doubleClick: function(e, obj) {
+    //           e.diagram.startTransaction("Toggle Input");
+    //           togglePortAndSthread(e.diagram,obj);
+    //           e.diagram.commitTransaction("Toggle Input");
+    //       }}
+    //     );
         
-      }
+    //   }
 
 
 
       // SthreadTab sthread view
-      myDiagram_sthread_sthread = $(go.Diagram, "SthreadViewer_sthread", 
-        {
-          "undoManager.isEnabled": true,          
-          LinkDrawn: function(e) {
-            console.log("LinkDrawn()");
+    //   myDiagram_sthread_sthread = $(go.Diagram, "SthreadViewer_sthread", 
+    //     {
+    //       "undoManager.isEnabled": true,          
+    //       LinkDrawn: function(e) {
+    //         console.log("LinkDrawn()");
 
-            deactivatePortAndSthread(e.diagram);
-          },
-        });
+    //         deactivatePortAndSthread(e.diagram);
+    //       },
+    //     });
 
-      myDiagram_sthread_sthread.linkTemplate = myDiagram.linkTemplate;
+    //   myDiagram_sthread_sthread.linkTemplate = myDiagram.linkTemplate;
 
-      myDiagram_sthread_sthread.nodeTemplateMap.add("streamPort", template_streamPort);
-      myDiagram_sthread_sthread.nodeTemplateMap.add("eventInputPort", template_eventInputPort);
-      myDiagram_sthread_sthread.nodeTemplateMap.add("eventOutputPort", template_eventOutputPort);
-      myDiagram_sthread_sthread.nodeTemplateMap.add("modeChangeInputPort", template_modeChangeInputPort);
-      myDiagram_sthread_sthread.nodeTemplateMap.add("modeChangeOutputPort", template_modeChangeOutputPort); 
-      myDiagram_sthread_sthread.nodeTemplateMap.add("dedicatedSthread", template_dedicatedSthread);
-      myDiagram_sthread_sthread.nodeTemplateMap.add("internalSthread", template_internalSthread);
-
-
-      
-
-
-
+    //   myDiagram_sthread_sthread.nodeTemplateMap.add("streamPort", template_streamPort);
+    //   myDiagram_sthread_sthread.nodeTemplateMap.add("eventInputPort", template_eventInputPort);
+    //   myDiagram_sthread_sthread.nodeTemplateMap.add("eventOutputPort", template_eventOutputPort);
+    //   myDiagram_sthread_sthread.nodeTemplateMap.add("modeChangeInputPort", template_modeChangeInputPort);
+    //   myDiagram_sthread_sthread.nodeTemplateMap.add("modeChangeOutputPort", template_modeChangeOutputPort); 
+    //   myDiagram_sthread_sthread.nodeTemplateMap.add("dedicatedSthread", template_dedicatedSthread);
+    //   myDiagram_sthread_sthread.nodeTemplateMap.add("internalSthread", template_internalSthread);
 
 
           
@@ -3005,8 +2999,6 @@
                   resizable: true,
                   resizeObjectName: "SHAPE",
                   toolTip: sharedToolTip,
-
-                  selectable: false // will be enabled
                 },
                 { name: "PALETTE_MODE_CHANGE_INPUT_PORT", locationSpot: go.Spot.Center },
                 $(go.Shape, "RoundedRectangle",
@@ -3042,8 +3034,6 @@
                   resizable: true,
                   resizeObjectName: "SHAPE",
                   toolTip: sharedToolTip,
-
-                  selectable: false // will be enabled
                 },
                 { name: "PALETTE_MODE_CHANGE_OUTPUT_PORT", locationSpot: go.Spot.Center },
                 $(go.Shape, "RoundedRectangle",
