@@ -138,7 +138,7 @@
 
     var init_instance;
     var myDiagram, palette, myDiagram_buildUnit, myDiagram_buildUnit_selectionPane, myDiagram_buildUnit_selectionPaneTitle, myDiagram_sthread_component, myDiagram_sthread_sthread, myOverview, myOverview_bulidUnit;
-    var highlighted_factory;
+    var highlighted_factory = null;
     var buildUnit_dragging = false;
     function init() {
 
@@ -170,7 +170,17 @@
 
                 
                 
-
+                "ChangedSelection": function(e) {
+                    if (myChangingSelection) return;
+                    myChangingSelection = true;
+                    var diagnodes = new go.Set();
+                    myDiagram.selection.each(function(n) {
+                    diagnodes.add(myDiagram_buildUnit_selectionPane.findNodeForData(n.data));
+                    });
+                    myDiagram_buildUnit_selectionPane.clearSelection();
+                    myDiagram_buildUnit_selectionPane.selectCollection(diagnodes);
+                    myChangingSelection = false;
+                },  // defined below, to enable/disable commands
                 // notice when the Paste command may need to be reenabled
                 "ClipboardChanged": enableAll,
 
@@ -294,7 +304,12 @@
                 },
                 SelectionMoved: function(e) {
                     console.log("SelectionMoved()");
-                    myDiagram_buildUnit.layout.invalidateLayout();
+                    // myDiagram_buildUnit.layout.invalidateLayout();
+                    myDiagram.nodes.each(function(node) {
+                        if(node.data.category === "buildUnit") {
+                            node.zOrder = 2;
+                        }
+                    })
                 },
                 PartResized: function(e) {
                     console.log("PartResized()");
@@ -2413,6 +2428,7 @@
 
           $(go.TextBlock,
             {
+              editable: true,
               stretch: go.GraphObject.Horizontal,
               alignment: go.Spot.BottomLeft,
               alignmentFocus: new go.Spot(0,0,0,0),
@@ -2498,7 +2514,6 @@
                 },
                 mouseDragLeave: function(e, obj) {
                     console.log("mouseDragLeave");
-                    obj.zOrder = 2;
                 },
                 locationObjectName: "BODY", 
                 zOrder: 2, 
@@ -2532,29 +2547,29 @@
       myDiagram.groupTemplateMap.add("processingComponent", template_processingComponent);
       myDiagram.groupTemplateMap.add("factory", template_factory);
     //   myDiagram.groupTemplateMap.add("buildUnit", template_buildUnit)
-      myDiagram_buildUnit = $(go.Diagram, "buildUnitViewer",  // create a Diagram for the DIV HTML element
-        {            
-            layout: $(CustomLayout),
-            "undoManager.isEnabled": false,            
-            "draggingTool.isEnabled": false,  
-            "clickSelectingTool.isEnabled": true, 
-            hasHorizontalScrollbar: false,
-            "ChangedSelection": function(e) {
-                    if (myChangingSelection) return;
-                    myChangingSelection = true;
-                    var diagnodes = new go.Set();
-                    myDiagram_buildUnit.selection.each(function(n) {
-                    diagnodes.add(myDiagram_buildUnit_selectionPane.findNodeForData(n.data));
-                    });
-                    myDiagram_buildUnit_selectionPane.clearSelection();
-                    myDiagram_buildUnit_selectionPane.selectCollection(diagnodes);
-                    myChangingSelection = false;
-                },  // defined below, to enable/disable commands
-          });
+    //   myDiagram_buildUnit = $(go.Diagram, "buildUnitViewer",  // create a Diagram for the DIV HTML element
+    //     {            
+    //         layout: $(CustomLayout),
+    //         "undoManager.isEnabled": true,            
+    //         "draggingTool.isEnabled": false,  
+    //         "clickSelectingTool.isEnabled": true, 
+    //         hasHorizontalScrollbar: false,
+    //         "ChangedSelection": function(e) {
+    //                 if (myChangingSelection) return;
+    //                 myChangingSelection = true;
+    //                 var diagnodes = new go.Set();
+    //                 myDiagram_buildUnit.selection.each(function(n) {
+    //                 diagnodes.add(myDiagram_buildUnit_selectionPane.findNodeForData(n.data));
+    //                 });
+    //                 myDiagram_buildUnit_selectionPane.clearSelection();
+    //                 myDiagram_buildUnit_selectionPane.selectCollection(diagnodes);
+    //                 myChangingSelection = false;
+    //             },  // defined below, to enable/disable commands
+    //       });
       
-      myDiagram_buildUnit.nodeTemplateMap = myDiagram.nodeTemplateMap;
-      myDiagram_buildUnit.groupTemplateMap = myDiagram.groupTemplateMap;
-      myDiagram_buildUnit.linkTemplate = myDiagram.linkTemplate;
+    //   myDiagram_buildUnit.nodeTemplateMap = myDiagram.nodeTemplateMap;
+    //   myDiagram_buildUnit.groupTemplateMap = myDiagram.groupTemplateMap;
+    //   myDiagram_buildUnit.linkTemplate = myDiagram.linkTemplate;
       myDiagram_buildUnit_selectionPaneTitle = $(go.Diagram, "selectionPaneTitle", {
             initialContentAlignment: go.Spot.Top,
             contentAlignment: go.Spot.TopLeft,
@@ -2569,6 +2584,7 @@
 
       myDiagram_buildUnit_selectionPane = $(go.Diagram, "selectionPane",
         {
+            "undoManager.isEnabled": true,            
             initialContentAlignment: go.Spot.Top,
             allowSelect: true,
             allowMove: false,
@@ -2603,14 +2619,14 @@
                 myChangingSelection = true;
                 var diagnodes = new go.Set();
                 myDiagram_buildUnit_selectionPane.selection.each(function(n) {
-                    diagnodes.add(myDiagram_buildUnit.findNodeForData(n.data));
+                    diagnodes.add(myDiagram.findNodeForData(n.data));
                 });
-                myDiagram_buildUnit.clearSelection();
-                myDiagram_buildUnit.selectCollection(diagnodes);
+                myDiagram.clearSelection();
+                myDiagram.selectCollection(diagnodes);
                 myChangingSelection = false;
             }
             });
-      myDiagram_buildUnit_selectionPane.add($(go.Part, { location: new go.Point(0, -70) }, $(go.TextBlock, "Selection", { font: "bold 28pt sans-serif", stroke: "black" })));
+      myDiagram_buildUnit_selectionPane.add($(go.Part, { location: new go.Point(0, -70) }, $(go.TextBlock, "Build Unit Pane", { font: "bold 22pt sans-serif", stroke: "black" })));
       
       //myDiagram_buildUnit.isEnabled = false;
       //myDiagram_buildUnit.model = myDiagram.model;
@@ -2657,13 +2673,14 @@
             }),
           $(go.Panel, "Horizontal",
             { position: new go.Point(16, 0) },
-            new go.Binding("background", "isSelected", function (s) { return (s ? "lightblue" : "white"); }).ofObject(),
+            new go.Binding("background", "isSelected", function (s) { return (s ? "lightblue" : "#E6E6E6"); }).ofObject(),
             $(go.TextBlock,
               new go.Binding("text", "key"))
           )  // end Horizontal Panel
         );  // end Node
     myDiagram_buildUnit_selectionPane.linkTemplate = $(go.Link);
     myDiagram_buildUnit_selectionPane.model = $(go.TreeModel, { nodeParentKeyProperty: "buildUnit" });
+    myDiagram_buildUnit_selectionPane.model.undoManager = myDiagram.model.undoManager
     
     
     myDiagram_buildUnit_selectionPane.addModelChangedListener(function(e) {
@@ -3599,7 +3616,7 @@
         // share the UndoManager too!
         myDiagram_buildUnit_selectionPane.model.undoManager = myDiagram.model.undoManager;
         myDiagram.requestUpdate();
-        myDiagram_buildUnit.requestUpdate();
+        // myDiagram_buildUnit.requestUpdate();
         myDiagram_buildUnit_selectionPane.requestUpdate();
     }
               
@@ -3611,15 +3628,14 @@
     myOverview.box.elt(0).stroke = "dodgerblue";
 
     // the Overview_bulidUnit
-    myOverview_bulidUnit =
-      $(go.Overview, "overviewDiv_buildUnit",
-        { observed: myDiagram_buildUnit, maxScale: 0.5 });
-        // change color of viewport border in Overview
-    myOverview_bulidUnit.box.elt(0).stroke = "dodgerblue";
+    // myOverview_bulidUnit =
+    //   $(go.Overview, "overviewDiv_buildUnit",
+    //     { observed: myDiagram_buildUnit, maxScale: 0.5 });
+    //     // change color of viewport border in Overview
+    // myOverview_bulidUnit.box.elt(0).stroke = "dodgerblue";
     
     
     startLogConsole();
-    
     //newDocument();
     
     // continually update the diagram
@@ -3629,8 +3645,8 @@
         m_pos = e.x;
         var panel = document.getElementById("selectionPaneWrapper");
         panel.style.width = (parseInt(getComputedStyle(panel, '').width) + dx) + "px";
-        myDiagram_buildUnit.requestUpdate();
-        myDiagram_buildUnit_selectionPaneTitle.requestUpdate();
+        myDiagram.requestUpdate();
+        // myDiagram_buildUnit_selectionPaneTitle.requestUpdate();
         myDiagram_buildUnit_selectionPane.requestUpdate();
     }
     document.getElementById("fileOpenMenu").addEventListener("change", handleOpenFile, false);
@@ -3666,6 +3682,7 @@
             }
         }
     }
+
     loop();  
       
       
@@ -3800,15 +3817,17 @@
         // Needed the first time you tab to a tab with a Diagram in it,
         // because the diagram in the tab had zero size while initializing:
         if (firstTime) {
-          myDiagram.delayInitialization(function() { myDiagram.requestUpdate(); });
-          myDiagram_buildUnit.delayInitialization(function() { myDiagram_buildUnit.requestUpdate(); });
+
+        //   myDiagram.delayInitialization(function() { myDiagram.requestUpdate(); });
+        //   myDiagram_buildUnit.delayInitialization(function() { myDiagram_buildUnit.requestUpdate(); });
         //   myDiagram_sthread_component.delayInitialization(function() { myDiagram_sthread_component.requestUpdate(); });
         //   myDiagram_sthread_sthread.delayInitialization(function() { myDiagram_sthread_sthread.requestUpdate(); });
+            
           firstTime = false;
         }
         // every time after you need nothing, or in case the Diagram div changed size, this:
         myDiagram.requestUpdate();
-        myDiagram_buildUnit.requestUpdate();
+        // myDiagram_buildUnit.requestUpdate();
         myDiagram_buildUnit_selectionPane.requestUpdate();
       }
     });
@@ -4035,8 +4054,8 @@
       palette.div = null;
       palette = null;
 
-      myDiagram_buildUnit.div = null;
-      myDiagram_buildUnit = null;
+    //   myDiagram_buildUnit.div = null;
+    //   myDiagram_buildUnit = null;
 
       myDiagram_buildUnit_selectionPane.div = null;
       myDiagram_buildUnit_selectionPane = null;
@@ -4044,14 +4063,14 @@
       myDiagram_buildUnit_selectionPaneTitle.div = null;
       myDiagram_buildUnit_selectionPaneTitle = null;
 
-      myDiagram_sthread_component.div = null;
-      myDiagram_sthread_component = null;
+    //   myDiagram_sthread_component.div = null;
+    //   myDiagram_sthread_component = null;
 
-      myDiagram_sthread_sthread.div = null;
-      myDiagram_sthread_sthread = null;
+    //   myDiagram_sthread_sthread.div = null;
+    //   myDiagram_sthread_sthread = null;
 
       myOverview.div = null;
-      myOverview_bulidUnit.div = null;
+    //   myOverview_bulidUnit.div = null;
 
       init();
     //   // loads an empty diagram
@@ -4361,7 +4380,7 @@ function updateColor_buildUnit() {
   var currentTab;
   if(document.getElementById("SchematicTab").style.display === "block") currentTab = "SchematicTab";
   else if(document.getElementById("JsonTab").style.display === "block") currentTab = "JsonTab";
-  else if(document.getElementById("BuildUnitTab").style.display === "block") currentTab = "BuildUnitTab";
+//   else if(document.getElementById("BuildUnitTab").style.display === "block") currentTab = "BuildUnitTab";
   //else if(document.getElementById("SthreadTab").style.display === "block") currentTab = "SthreadTab";
 
 //   var buildUnit_name;
@@ -4511,11 +4530,25 @@ function setOptionalNum_fusionOperator() {
 function toggleBuildUnitWindow() {
   //console.log("toggleBuildUnitWindow()");
 
-  var buildUnitWindow = document.getElementById("infoDraggable_buildUnit");
-  var visible = buildUnitWindow.style.visibility;
+//   var buildUnitWindow = document.getElementById("infoDraggable_buildUnit");
+//   var visible = buildUnitWindow.style.visibility;
 
-  if(visible === "visible") buildUnitWindow.style.visibility = "hidden";
-  else buildUnitWindow.style.visibility = "visible";
+//   if(visible === "visible") buildUnitWindow.style.visibility = "hidden";
+//   else buildUnitWindow.style.visibility = "visible";
+    var visible = document.getElementById("selectionPaneWrapper").style.visibility;
+    console.log(visible)
+    if(visible === "visible") {
+        document.getElementById("selectionPaneWrapper").style.visibility = "hidden";
+        document.getElementById("selectionPaneWrapper").style.width = '0px';
+        myDiagram.requestUpdate();
+        myDiagram_buildUnit_selectionPane.requestUpdate();
+    }
+    else {
+        document.getElementById("selectionPaneWrapper").style.visibility = "visible";
+        document.getElementById("selectionPaneWrapper").style.width = '300px';
+        myDiagram.requestUpdate();
+        myDiagram_buildUnit_selectionPane.requestUpdate();
+    }
 }
 
 function toggleFusionOperatorWindow() {
@@ -4674,12 +4707,12 @@ function toggleFusionOperatorWindow() {
           </ul>
         </li> -->
 
-        <!-- <li><a href="#">View</a>
+        <li><a href="#">View</a>
           <ul >
-            <li><a id="ViewBuildUnit" href="#" onclick="toggleBuildUnitWindow()">Build Unit Window</a></li>
-            <li><a id="ViewFusionOperator" href="#" onclick="toggleFusionOperatorWindow()">Fusion Operator Window</a></li>
+            <li><a href="#"><input id="ViewBuildUnit" type="checkbox" name="options" value="0" onclick="toggleBuildUnitWindow()">Build Unit Pane</a></li>
+            <!-- <li><a id="ViewFusionOperator" href="#" onclick="toggleFusionOperatorWindow()">Fusion Operator Window</a></li> -->
           </ul>
-        </li> -->
+        </li>
 
         <li><a href="#">Options</a>
           <ul>
@@ -4738,6 +4771,11 @@ function toggleFusionOperatorWindow() {
           <div id="palette"></div>
         </div>
       </div>
+      <div id="resizeBorder"></div>
+        <div id="selectionPaneWrapper">
+            <div id="selectionPaneTitle"></div>
+            <div id="selectionPane"></div>
+        </div>
     </div>
   </div>
 
@@ -4749,11 +4787,11 @@ function toggleFusionOperatorWindow() {
   <div id="BuildUnitTab" class="tabcontent" style="padding: 0px">
         <div id="buildUnitCanvas">
             <div id="buildUnitViewer"></div>
-            <div id="resizeBorder"></div>
+            <!-- <div id="resizeBorder"></div>
             <div id="selectionPaneWrapper">
                 <div id="selectionPaneTitle"></div>
                 <div id="selectionPane"></div>
-            </div>
+            </div> -->
             
         </div>  
         
@@ -4775,7 +4813,7 @@ function toggleFusionOperatorWindow() {
 
   <div class="tab">
     <button id="SchematicButton" class="tablinks active" onclick="openTab(event, 'SchematicTab')">Schematic</button>
-    <button id="BuildUnitButton" class="tablinks" onclick="openTab(event, 'BuildUnitTab')">BuildUnit</button>
+    <!-- <button id="BuildUnitButton" class="tablinks" onclick="openTab(event, 'BuildUnitTab')">BuildUnit</button> -->
     <button id="JsonButton" class="tablinks" onclick="openTab(event, 'JsonTab')">Json</button>
     <!-- <button id="SthreadButton" class="tablinks" onclick="openTab(event, 'SthreadTab')">Sthread</button> -->
   </div>
