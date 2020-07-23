@@ -2377,7 +2377,27 @@
                   { click: saveFactory }),
                 $("ContextMenuButton",
                   $(go.TextBlock, {margin: 5, width: 150}, "Set Build Unit"),
-                  { click: setBuildUnit_contextMenu })
+                    { 
+                      click: setBuildUnit_contextMenu 
+                    },
+                    new go.Binding("visible", "", 
+                        function(o) {
+                            var list = []
+                            myDiagram.nodes.each(function(node) {
+                                if (node.data.group === o.key) {
+                                    list.push(node);
+                                }
+                            });
+                            console.log(list);
+                            var flag = false;
+                            list.forEach(function(node) {
+                                console.log(node);
+                                if(node.data.buildUnit === "" || node.data.buildUnit === undefined) flag = true;
+                            })
+                            return flag;
+                        }
+                    )
+                )
                 // more ContextMenuButtons would go here
             )  // end Adornment
           },
