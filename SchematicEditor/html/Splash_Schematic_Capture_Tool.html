@@ -101,20 +101,23 @@
 
         CustomDraggingTool.prototype.moveParts = function(parts, offset, check) {
             go.DraggingTool.prototype.moveParts.call(this, parts, offset, check);
+            var diagram = this.diagram;
             this.diagram.layoutDiagram(true);
         };
 
         CustomDraggingTool.prototype.computeEffectiveCollection = function(parts) {
+            console.log("computeEffectiveCollection")
             var coll = new go.Set(/*go.Part*/).addAll(parts);
             var tool = this;
             parts.each(function(p) {
                 tool.walkSubTree(p, coll);
-            });
+            })
             return go.DraggingTool.prototype.computeEffectiveCollection.call(this, coll);
         };
 
         // Find other attached nodes.
         CustomDraggingTool.prototype.walkSubTree = function(sup, coll) {
+            console.log("walkSubTree")
             if (sup === null) return;
             coll.add(sup);
             if (sup.category !== "buildUnit") return;
@@ -135,6 +138,8 @@
 
     var init_instance;
     var myDiagram, palette, myDiagram_buildUnit, myDiagram_buildUnit_selectionPane, myDiagram_buildUnit_selectionPaneTitle, myDiagram_sthread_component, myDiagram_sthread_sthread, myOverview, myOverview_bulidUnit;
+    var highlighted_factory;
+    var buildUnit_dragging = false;
     function init() {
 
         var externalDroppedObjectName = "NONE";
@@ -183,10 +188,11 @@
                 //         }))
                 // },
                 // ),
-
+                mouseDragOver: function(e) { 
+                    console.log("mouseDragOver");
+                },
                 mouseDrop: function(e) { 
                     console.log("mouseDrop");
-                    
                     finishDrop(e, null);
                 },
                 
@@ -569,6 +575,18 @@
 
         function finishDrop(e, grp) {      
             console.log("finishDrop")
+            var list = new go.List();
+            if(grp === null) {
+                e.diagram.selection.each(function(node) {
+                    myDiagram.nodes.each(function(part) {
+                        if(part.data.buildUnit === node.key){
+                            list.add(part);
+                        }   
+                    })
+                })
+                e.diagram.commandHandler.addTopLevelParts(list, true);
+                return;
+            }
             var ok = (grp !== null
             ? grp.addMembers(grp.diagram.selection, true)
             : e.diagram.commandHandler.addTopLevelParts(e.diagram.selection, true));
@@ -778,7 +796,7 @@
               ungroupable: true,
               locationSpot: go.Spot.Center,
               zOrder: 5,
-              
+              layerName: "Background",
               computesBoundsAfterDrag: false,
               // when the selection is dropped into a Group, add the selected Parts into that Group;
               // if it fails, cancel the tool, rolling back any changes
@@ -801,11 +819,11 @@
               zOrder: 1,
               layerName: "Background",
               
-              computesBoundsAfterDrag: true,
+              computesBoundsAfterDrag: false,
               // when the selection is dropped into a Group, add the selected Parts into that Group;
               // if it fails, cancel the tool, rolling back any changes
               mouseDrop: finishDrop_component,
-              handlesDragDropForMembers: false,  // don't need to define handlers on member Nodes and Links.
+              handlesDragDropForMembers: true,  // don't need to define handlers on member Nodes and Links.
               // selectionChanged: function(p) {
               //   p.zOrder = (p.isSelected ? 2 : 1);
               // },
@@ -813,10 +831,9 @@
           ];
         }
         
-         function finishDrop_component(e, grp) {
+        function finishDrop_component(e, grp) {
              console.log("finishDrop_component");
              var collection = new go.List();
-             
              grp.diagram.selection.each(function(part) {
                 if(part.category === "buildUnit") {
                     myDiagram.nodes.each(function(part2) {
@@ -835,6 +852,19 @@
                 : 
                     // e.diagram.commandHandler.addTopLevelParts(e.diagram.selection, true);
                     e.diagram.commandHandler.addTopLevelParts(collection, true));
+            if (!ok) e.diagram.currentTool.doCancel();
+        }
+        function finishDrop_component_buldUnit(e, grp) {
+            console.log("finishDrop_component_buildUnit");
+            var ok = (highlighted_factory !== null
+                ?  
+                    // grp.addMembers(grp.diagram.selection, true) 
+                    highlighted_factory.addMembers(myDiagram.selection, true) 
+                : 
+                    // e.diagram.commandHandler.addTopLevelParts(e.diagram.selection, true);
+                    e.diagram.commandHandler.addTopLevelParts(myDiagram.selection, true));
+            highlighted_factory = null;
+            buildUnit_dragging = false;
             if (!ok) e.diagram.currentTool.doCancel();
         }
         function unset_buildUnit(e, obj) {
@@ -1596,11 +1626,31 @@
         var posX_atProcessingComponent;
         var posY_atProcessingComponent;
         var portType_atProcessingComponent;
+        function stayInGroup(part, pt, gridpt) {
+            // don't constrain top-level nodes
+            var grp = part.containingGroup;
+            if (grp === null) return pt;
+            // try to stay within the background Shape of the Group
+            var back = grp.resizeObject;
+            if (back === null) return pt;
+            // allow dragging a Node out of a Group if the Shift key is down
+            if (part.diagram.lastInput.shift) return pt;
+            var p1 = back.getDocumentPoint(go.Spot.TopLeft);
+            var p2 = back.getDocumentPoint(go.Spot.BottomRight);
+            var b = part.actualBounds;
+            var loc = part.location;
+            // find the padding inside the group's placeholder that is around the member parts
+            // var m = grp.placeholder.padding;
+            // now limit the location appropriately
+            var x = Math.max(p1.x + 30, Math.min(pt.x, p2.x - 30 - b.width - 1)) + (loc.x-b.x);
+            var y = Math.max(p1.y + 30, Math.min(pt.y, p2.y - 30 - b.height - 1)) + (loc.y-b.y);
+            return new go.Point(x, y);
+        }
 
         var template_processingComponent =
         $(go.Group, "Spot", splash_atomicComponentStyle(),
           {
-            name: "PROCESSING",        
+            name: "PROCESSING",   
             contextMenu:     // define a context menu for each node
                 $("ContextMenu",  // that has one button
                   $("ContextMenuButton",
@@ -1616,7 +1666,7 @@
                     )
                   )
                 ),
-          
+            // dragComputation: stayInGroup,
             mouseDragEnter: function(e, grp, prev) {                              
               isIncoming_toProcessingComponent = true;              
               highlightProcessingComponent(e, grp, true);               
@@ -1629,7 +1679,6 @@
             memberValidation: function(grp, node) {
               console.log("memberValidation()");
               var selectedName = node.name;
-              
               var grp_loc = new go.Point(0, 0);
               var node_loc = new go.Point(0, 0);
               
@@ -2209,9 +2258,11 @@
         }
 
         function highlightFactory(e, grp, show) { 
+          console.log("highlightFactory")
           if (!grp) return;
           e.handled = true;
           if (show) {
+            highlighted_factory = grp;
             // cannot depend on the grp.diagram.selection in the case of external drag-and-drops;
             // instead depend on the DraggingTool.draggedParts or .copiedParts
             var tool = grp.diagram.toolManager.draggingTool;
@@ -2219,6 +2270,11 @@
             // now we can check to see if the Group will accept membership of the dragged Parts
             if (grp.canAddMembers(map.toKeySet())) {
               return;
+            }
+          }
+          else {
+            if(!buildUnit_dragging) {
+                highlighted_factory = null;
             }
           }
           grp.findObject("SHAPE").fill = "white";
@@ -2234,61 +2290,6 @@
         var posY_atFactory;
         var portType_atFactory;
         
-        var template_buildUnit =
-        $(go.Group, "Spot", splash_factoryStyle(),
-          {
-            selectionObjectName: "BUILDUNIT",
-            locationObjectName: "BUILDUNIT",
-            resizeObjectName: "BUILDUNIT",
-            
-            mouseDragEnter: function(e, grp, prev) {      
-              console.log("mouseDragEnter()");
-            },
-            mouseDragLeave: function(e, grp, next) { 
-              console.log("mouseDragLeave()");           
-            },                          
-
-            memberAdded: function(grp, node) {
-                console.log("memberAdded()");
-            },
-
-            memberValidation: function(grp, node) {
-              console.log("memberValidation")
-              return true;
-            },
-
-            contextMenu:     // define a context menu for each node
-              $("ContextMenu",  // that has one button
-                $("ContextMenuButton",
-                  $(go.TextBlock, {margin: 5, width: 150}, "Unset BuildUnit"),
-                  { click: function(e, obj) {
-                      return;
-                  } })
-                // more ContextMenuButtons would go here
-            )  // end Adornment
-          },
-          new go.Binding("location", "loc", go.Point.parse),
-          $(go.Shape, "RoundedRectangle",
-            { 
-              name: "BUILDUNIT" ,
-              fill: "rgba(255, 255, 255, 0.0)", stroke: "black", parameter1: 10, strokeWidth: 3, strokeDashArray: [4, 2],
-            }, 
-            new go.Binding("desiredSize", "size", go.Size.parse).makeTwoWay(go.Size.stringify),
-          ),  
-          $(go.TextBlock,
-            {
-              stretch: go.GraphObject.Horizontal,
-              alignment: go.Spot.BottomLeft,
-              alignmentFocus: new go.Spot(0,0,0,0),
-              textAlign: "center",
-              margin: 2,
-              overflow: go.TextBlock.OverflowEllipsis,
-              maxLines: 5,
-              
-            },
-            new go.Binding("text", "key").makeTwoWay(), 
-          ),
-        ); 
         var template_factory =
         $(go.Group, "Spot", splash_factoryStyle(),
           {
@@ -2307,17 +2308,17 @@
             memberAdded: function(grp, node) {
                 console.log("memberAdded");
             	if(node.name === "FACTORY") {
-            		grp.zOrder = node.zOrder-1;
-                console.log("yes factory");
-            	}
+                    grp.zOrder = node.zOrder-1;
+                    console.log("yes factory");
+                }
             },
 
             memberValidation: function(grp, node) {
               console.log("memberValidation()");
               var selectedName = node.name;
+                console.log(node.name);
               var grp_loc = new go.Point(0, 0);
               var node_loc = new go.Point(0, 0);
-              
               var grp_height = grp.actualBounds.height;
               var grp_width = grp.actualBounds.width;              
               
@@ -2388,10 +2389,8 @@
                                     list.push(node);
                                 }
                             });
-                            console.log(list);
                             var flag = false;
                             list.forEach(function(node) {
-                                console.log(node);
                                 if(node.data.buildUnit === "" || node.data.buildUnit === undefined) flag = true;
                             })
                             return flag;
@@ -2421,7 +2420,9 @@
               margin: 2,
               overflow: go.TextBlock.OverflowEllipsis,
               maxLines: 5,
-              
+              textValidation: function okName(textblock, oldstr, newstr) {
+                                return oldstr === newstr || myDiagram.model.findNodeDataForKey(newstr) === null;
+                              }
             },
             new go.Binding("text", "key").makeTwoWay(), 
           ),
@@ -2488,16 +2489,27 @@
       myDiagram.nodeTemplateMap.add("buildUnit",
         $(go.Node, "Auto",
           { 
-              locationObjectName: "BODY", 
-          zOrder: 1, 
-          contextMenu:     // define a context menu for each node
-                $("ContextMenu",  // that has one button
-                  $("ContextMenuButton",
-                    $(go.TextBlock, {margin: 5, width: 150}, "Unset BuildUnit"),
-                    { 
-                      click: unset_buildUnit
-                    })
-              ) 
+                layerName: "Background",
+                mouseDrop: finishDrop_component_buldUnit,
+                mouseDragEnter: function(e, obj) {
+                    console.log("mouseDragEnter");
+                    obj.zOrder = -1;
+                    buildUnit_dragging = true;
+                },
+                mouseDragLeave: function(e, obj) {
+                    console.log("mouseDragLeave");
+                    obj.zOrder = 2;
+                },
+                locationObjectName: "BODY", 
+                zOrder: 2, 
+                contextMenu:     // define a context menu for each node
+                    $("ContextMenu",  // that has one button
+                    $("ContextMenuButton",
+                        $(go.TextBlock, {margin: 5, width: 150}, "Unset BuildUnit"),
+                        { 
+                        click: unset_buildUnit
+                        })
+                    ) 
           },
           $(go.Shape, "RoundedRectangle",
           
@@ -2581,6 +2593,7 @@
                     setsChildPortSpot: false
                 }),
             "ViewportBoundsChanged": function(e) {
+                console.log("ViewportBoundsChanged")
                 //let allowScroll = !e.diagram.viewportBounds.containsRect(e.diagram.documentBounds);
                 // myDiagram_buildUnit_selectionPane.allowVerticalScroll = allowScroll;
 
