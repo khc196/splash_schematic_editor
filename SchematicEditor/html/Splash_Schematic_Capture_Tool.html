@@ -152,7 +152,7 @@
                 // commandHandler: new DrawCommandHandler(),  // defined in DrawCommandHandler.js
                 // "commandHandler.archetypeGroupData": { isGroup: true, category: "OfNodes" },
                 
-                //resizingTool: new ResizeMultipleTool(),  // defined in ResizeMultipleTool.js
+                // resizingTool: new ResizeMultipleTool(),  // defined in ResizeMultipleTool.js
                 // "resizingTool.isGridSnapEnabled" : true,
                 
                 "animationManager.isEnabled": false,
@@ -2060,10 +2060,8 @@
             memberValidation: function(grp, node) {
               console.log("memberValidation()");
               var selectedName = node.name;
-              
               var grp_loc = new go.Point(0, 0);
               var node_loc = new go.Point(0, 0);
-              
               var grp_height = grp.actualBounds.height;
               var grp_width = grp.actualBounds.width;              
               
@@ -2088,7 +2086,7 @@
                     
                     grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = "blue";
                     posX_atFusionOperator = grp_loc.x + grp_width/2 - 10;
-                    posY_atFusionOperator = grp_loc.y - 10;  
+                    posY_atFusionOperator = grp.actualBounds.y + grp.findObject("SHAPE").width/2 - 10;  
                     portType_atFusionOperator = "STREAM_OUTPUT_PORT";
                     
                   }
@@ -2127,7 +2125,7 @@
               name: "AREA_STREAM_INPUT_PORT",
               stretch: go.GraphObject.Vertical,
               fill: null, stroke: null, strokeWidth: 0,
-              width: 30,
+              width: 20,
               opacity: 0.5,
               alignment: go.Spot.Left,
               alignmentFocus: new go.Spot(0,0.5,0,0),
@@ -2139,7 +2137,7 @@
               name: "AREA_STREAM_OUTPUT_PORT",
               stretch: go.GraphObject.Vertical,
               fill: null, stroke: null, strokeWidth: 0,
-              width: 30,
+              width: 20,
               opacity: 0.5,
               alignment: go.Spot.Right,
               alignmentFocus: new go.Spot(1,0.5,0,0),              
