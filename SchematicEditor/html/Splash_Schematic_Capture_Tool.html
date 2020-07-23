@@ -1416,7 +1416,7 @@
                     var it = part.memberParts;
                     while (it.next()) {
                         if(it.value.data.buildUnit)
-                            return;
+                            continue;
                         myDiagram_buildUnit_selectionPane.model.setParentKeyForNodeData(it.value.data, buildUnit_name);
                     }
                 }
