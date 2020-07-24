@@ -2472,7 +2472,33 @@
         var posX_atFactory;
         var posY_atFactory;
         var portType_atFactory;
-        
+        go.Shape.defineFigureGenerator("NoBottomRectangle", function(shape, w, h) {
+            // this figure takes one parameter, the size of the corner
+            var p1 = 5;  // default corner size
+            if (shape !== null) {
+            var param1 = shape.parameter1;
+            if (!isNaN(param1) && param1 >= 0) p1 = param1;  // can't be negative or NaN
+            }
+            p1 = Math.min(p1, w / 2);
+            p1 = Math.min(p1, h / 2);  // limit by whole height or by half height?
+            var geo = new go.Geometry();
+            // a single figure consisting of straight lines and quarter-circle arcs
+            geo.add(new go.PathFigure(0, h, false)
+             .add(new go.PathSegment(go.PathSegment.Line, 0, 0))
+             .add(new go.PathSegment(go.PathSegment.Line, w, 0))
+             .add(new go.PathSegment(go.PathSegment.Line, w, h)));
+            // geo.add(new go.PathFigure(0, p1)
+            //         .add(new go.PathSegment(go.PathSegment.Arc, 180, 90, p1, p1, p1, p1))
+            //         .add(new go.PathSegment(go.PathSegment.Line, w - p1, 0))
+            //         .add(new go.PathSegment(go.PathSegment.Arc, 270, 90, w - p1, p1, p1, p1))
+            //         .add(new go.PathSegment(go.PathSegment.Line, w, h))
+            //         .add(new go.PathSegment(go.PathSegment.Line, 0, h).close()));
+            // don't intersect with two top corners when used in an "Auto" Panel
+            geo.spot1 = new go.Spot(0, 0, 0.3 * p1, 0.3 * p1);
+            geo.spot2 = new go.Spot(1, 1, -0.3 * p1, 0);
+            return geo;
+        });
+
         var template_factory =
         $(go.Group, "Spot", splash_factoryStyle(),
           {
@@ -2583,6 +2609,7 @@
                 // more ContextMenuButtons would go here
             )  // end Adornment
           },
+   
           $(go.Shape, "RoundedRectangle",
             { 
               name: "SHAPE" ,
@@ -2661,6 +2688,15 @@
             }  
             
           ),
+          $(go.Shape, "NoBottomRectangle",
+            { 
+              name: "LABEL" ,
+              fill: "white", stroke: "", strokeWidth: 3, 
+              width: 50, height: 20,
+              alignment: new go.Spot(0.03, 0, 0, 0),
+              alignmentFocus: go.Spot.BottomLeft,
+            }, 
+          ),  
         ); 
       }  
           
@@ -2901,7 +2937,7 @@
                     e.newValue.category === 'processingComponent' || 
                     e.newValue.category === 'sourceComponent' || 
                     e.newValue.category === 'sinkComponent' || 
-                    e.newValue.category === 'fusionComponent'
+                    e.newValue.category === 'fusionOperator'
                 ) {
                     myDiagram_buildUnit_selectionPane.model.addNodeData(e.newValue);
                 }
