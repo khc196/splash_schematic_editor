@@ -451,3 +451,9 @@ splashHighlight {
 #myInfo_fusionOperator_btn_cancel {
   width: 50%;
 }
+#myInfo_fusionOperator_text_syntax {
+  font-size: 12px;
+  color: red;
+  font-weight: bold;
+  visibility: hidden;
+}
