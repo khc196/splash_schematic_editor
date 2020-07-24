@@ -142,6 +142,8 @@
     var buildUnit_dragging = false;
     var configuring_fusionRule = false;
     var nodes_selected_in_fusionrule = new go.Set();
+    var fusionRule_confirm_event_listener = null;
+    var selected_fusion_operator = null;
     function init() {
 
         var externalDroppedObjectName = "NONE";
@@ -1572,6 +1574,7 @@
         function configureFusionRule_contextMenu(e, obj) {
             toggleFusionOperatorWindow();
             var name = obj.part.key;
+            selected_fusion_operator = name;
             document.getElementById("selected_fusionOperator").value = name;
             var confirm = document.getElementById("myInfo_fusionOperator_btn_confirm");
             var optional_ports, mandatory_ports, threshold, correlation;
@@ -1599,9 +1602,18 @@
                 select_option_left.removeChild(option);
                 select_option_right.appendChild(option);
             };
+            
+            loadFusionRule(obj)
+            confirm.addEventListener('click', confirmFusionRule);
+        }
+        function loadFusionRule(obj) {
+            var select_option_left = document.getElementById("myInfo_fusionOperator_mandatory_ports_leftValues");
+            var select_option_right = document.getElementById("myInfo_fusionOperator_mandatory_ports_rightValues");
+            var threshold = document.getElementById("selectedInfo_fusionOperator_rule_optionalNum")
+            var correlation = document.getElementById("selectedInfo_fusionOperator_rule_correlation")
+
             myDiagram.nodes.each(function(node) {
                 if(node.category === "streamPort" && node.data.PORT_TYPE === "STREAM_INPUT_PORT") {
-                    console.log(obj.part.key)
                     if(node.data.group === obj.part.key) {
                         var option = document.createElement("option");
                         option.text = node.key;
@@ -1612,42 +1624,97 @@
                             nodes_selected_in_fusionrule.add(node);
                             myDiagram.selectCollection(nodes_selected_in_fusionrule);
                         }
-                        select_option_left.appendChild(option)   
+                        console.log(obj.part.data.fusionRule)
+                        if(obj.part.data.fusionRule) {
+                            if(obj.part.data.fusionRule.mandatory_ports.find(element => element === node.key)){
+                                select_option_right.appendChild(option);
+                            }
+                            else {
+                                select_option_left.appendChild(option)   
+                            }
+                        }
+                        else {
+                            select_option_left.appendChild(option)   
+                        }
                     }
                 }
             })
-            confirm.addEventListener('click', function(){
-                saveFusionRule(name, optional_ports, mandatory_ports, threshold, correlation)
-            });
+            if(obj.part.data.fusionRule) {
+                threshold.value = obj.part.data.fusionRule.optional_ports_threshold;
+                correlation.value = obj.part.data.fusionRule.correlation;
+            }
+            else {
+                threshold.value = "";
+                correlation.value = "";
+            }
         }
-        function loadFusionRule(obj) {
-            return null;
+        function confirmFusionRule(){
+            var optional_ports_selection = document.getElementById("myInfo_fusionOperator_mandatory_ports_leftValues");
+            var optional_ports_ = optional_ports_selection.options;
+            var optional_ports = []
+            for(var i = 0; i < optional_ports_.length; i++) {
+                optional_ports[i] = optional_ports_[i].text
+            }
+            var mandatory_ports_selection = document.getElementById("myInfo_fusionOperator_mandatory_ports_rightValues");
+            var mandatory_ports_ = mandatory_ports_selection.options;
+            var mandatory_ports = []
+            for(var i = 0; i < mandatory_ports_.length; i++) {
+                mandatory_ports[i] = mandatory_ports_[i].text
+            }
+            var threshold = document.getElementById("selectedInfo_fusionOperator_rule_optionalNum").value
+            var correlation = document.getElementById("selectedInfo_fusionOperator_rule_correlation").value
+
+            saveFusionRule(selected_fusion_operator, optional_ports, mandatory_ports, threshold, correlation)
         }
         function saveFusionRule(name, optional_ports, mandatory_ports, threshold, correlation) {
-            console.log(name)
-            myDiagram.model.startTransaction("modified property");
+            // var new_data = {
+            //     optional_ports: optional_ports,
+            //     mandatory_ports: mandatory_ports,
+            //     optional_ports_threshold: threshold,
+            //     correlation: correlation
+            // };
+            
             var new_data = {
                 optional_ports: optional_ports,
                 mandatory_ports: mandatory_ports,
                 optional_ports_threshold: threshold,
                 correlation: correlation
             };
+            console.log(new_data);
+            if(!checkFusionRule(new_data)) 
+                return;
 
-            myDiagram.model.set(myDiagram.model.findNodeDataForKey(name), "fusionRule", new_data)
-            myDiagram.model.commitTransaction("modified property");
-            myDiagram.model.startTransaction("modified property");
-            var new_data = {
-                optional_ports: 0,
-                mandatory_ports: 0,
-                optional_ports_threshold: 0,
-                correlation: 0
-            };
-            myDiagram.model.set(myDiagram.model.findNodeDataForKey(name), "fusionRule", new_data)
-            myDiagram.model.commitTransaction("modified property");
+            myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(name), "fusionRule", new_data)
+            var btn = document.getElementById("myInfo_fusionOperator_btn_confirm");
+            btn.removeEventListener("click", confirmFusionRule)
             toggleFusionOperatorWindow();
         }
         var current_processingComponentKey;
-
+        function checkFusionRule(data) {
+            var text = document.getElementById("myInfo_fusionOperator_text_syntax");
+            
+            if(data.mandatory_ports.length === 0) {
+                text.innerHTML = "No mandatory port"
+                text.style.visibility = "visible";
+                return false;
+            }
+            else if(data.optional_ports.length < data.optional_ports_threshold) {
+                text.innerHTML = "Threshold too big"
+                text.style.visibility = "visible";
+                return false;
+            }
+            else if(data.optional_ports_threshold === "") {
+                text.innerHTML = "No threshold"
+                text.style.visibility = "visible";
+                return false;
+            }
+            else if(data.correlation === "") {
+                text.innerHTML = "No correlation"
+                text.style.visibility = "visible";
+                return false;
+            }
+            return true;
+        }
         function editSthread_contextMenu(e, obj) {
           // get the context menu that holds the button that was clicked
           var contextmenu = obj.part;
@@ -2277,9 +2344,11 @@
             { 
               name: "SHAPE" , 
               height: 40, width: 100,
-              fill: "white", stroke: "black", strokeWidth: 1.5, angle: 90 
+              fill: "white", stroke: "red", strokeWidth: 1.5, angle: 90 
             },
-
+            new go.Binding("stroke", "fusionRule", function(r) {
+                return r ? "black" : "red";
+            }),
             new go.Binding("height", "WIDTH").makeTwoWay(),  
             new go.Binding("width", "HEIGHT").makeTwoWay(),              
           ),
@@ -4643,13 +4712,15 @@ function toggleFusionOperatorWindow() {
   //console.log("toggleFusionOperatorWindow()");
   var fusionOperatorWindow = document.getElementById("infoDraggable_fusionOperator");
   var visible = fusionOperatorWindow.style.visibility;
-
+  var warning_text = document.getElementById("myInfo_fusionOperator_text_syntax");
+  warning_text.innerHTML = "Incorrect fusion rule";
   if(visible === "visible") {
       fusionOperatorWindow.style.visibility = "hidden";
   }
   else {
       fusionOperatorWindow.style.visibility = "visible";
   }
+  warning_text.style.visibility = "hidden";
 }
 function isNotConfiguringFusionRule() {
     return !configuring_fusionRule;
@@ -4940,7 +5011,7 @@ function isNotConfiguringFusionRule() {
       </div>
   </div>
 
-  <div id="infoDraggable_fusionOperator" class="draggable" style="z-index: 9; visibility: hidden; display: inline-block; vertical-align: top; padding: 5px; top: 350px; left: 20px;  height: 300px; width: 500px">
+  <div id="infoDraggable_fusionOperator" class="draggable" style="z-index: 9; visibility: hidden; display: inline-block; vertical-align: top; padding: 5px; top: 350px; left: 20px;  height: 320px; width: 500px">
     <div id="myInfo_fusionOperator">
         <div>
             <div id="infoDraggableHandle_fusionOperator" class="handle">Fusion Rule Configuration</div>
@@ -4983,6 +5054,7 @@ function isNotConfiguringFusionRule() {
                 <input type="text" id="selectedInfo_fusionOperator_rule_correlation">
             </div>
         </div>
+        <div id="myInfo_fusionOperator_text_syntax">Incorrect fusion rule</div>
         <div id ="myInfo_fusionOperator_btn_div">
             <button id="myInfo_fusionOperator_btn_confirm"type="button" onclick="">Confirm</button>
             <button id="myInfo_fusionOperator_btn_cancel"type="button" onclick="toggleFusionOperatorWindow()">Cancel</button>
