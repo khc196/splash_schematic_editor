@@ -32,6 +32,17 @@
   <script src="../libraries/Gojs/assets/js/jquery-ui.min.js"></script>
   
   <script id="code">
+        if (!String.prototype.format) {
+            String.prototype.format = function() {
+                var args = arguments;
+                return this.replace(/{(\d+)}/g, function(match, number) { 
+                return typeof args[number] != 'undefined'
+                    ? args[number]
+                    : match
+                ;
+                });
+            };
+        }
             // build unit layout
             {
         function CustomLayout() {
@@ -144,6 +155,7 @@
     var nodes_selected_in_fusionrule = new go.Set();
     var fusionRule_confirm_event_listener = null;
     var selected_fusion_operator = null;
+    var factory_mode_select_map = new Map();
     function init() {
 
         var externalDroppedObjectName = "NONE";
@@ -224,6 +236,9 @@
                             inspector2.inspectObject();
                             updateCurrentObject(part);
                             addLog("Add a new Component: "+part.name);
+                            if(part.name === "FACTORY") {
+                                factory_mode_select_map.set(part.key, 0);
+                            }
                             //console.log("BuildUnit is null string? "+ (part.data.BuildUnit === null) ? "true" : "false");
                         });
                 },
@@ -269,7 +284,6 @@
                     externalDroppedObjectName = "NONE";
                     internalSelectedObjectName = selected.name;
                     console.log(selected.key);
-                    console.log(selected.name);
                     //setDefaultProperty(selected);
 
                     updateCurrentObject(selected);
@@ -767,7 +781,31 @@
             if(grp) {
               node_y = grp_y - grp_height/2 + 10;
             }
-          } else {
+          } else if(node.name === "MODECHANGE_INPUT_PORT"
+                  || node.name === "MODECHANGE_DELEGATION_INPUT_PORT") {
+            if(grp) {
+                if(grp.findObject("MODE_A").visible) {
+                    node_x = grp_x - grp_width/2 + 10;
+                    node_y = grp_y - grp_height/2 + 10;
+                }
+                else {
+                    node_x = grp_x - grp_width/2 + 10;
+                    node_y = grp_y - grp_height/2 - 10;
+                }
+            }
+          } else if(node.name === "MODECHANGE_OUTPUT_PORT"
+                  || node.name === "MODECHANGE_DELEGATION_OUTPUT_PORT") {
+            if(grp) {
+                if(grp.findObject("MODE_A").visible) {
+                    node_x = grp_x + grp_width/2 - 30;
+                    node_y = grp_y - grp_height/2 + 10;
+                }
+                else {
+                    node_x = grp_x + grp_width/2 - 30;
+                    node_y = grp_y - grp_height/2 - 10;
+                }
+            }
+          }else {
             // on the background
           } 
           
@@ -1606,6 +1644,15 @@
             loadFusionRule(obj)
             confirm.addEventListener('click', confirmFusionRule);
         }
+        function configureMode_contextMenu(e, obj) {
+            toggleModeConfigurationWindow();
+            var name = obj.part.key;
+            console.log(name)
+            document.getElementById("selected_factory").value = name;
+            var confirm = document.getElementById("myInfo_modeConfiguration_btn_confirm");
+            loadModeInfo(obj)
+            confirm.addEventListener('click', confirmModeConfiguration);
+        }
         function loadFusionRule(obj) {
             var select_option_left = document.getElementById("myInfo_fusionOperator_mandatory_ports_leftValues");
             var select_option_right = document.getElementById("myInfo_fusionOperator_mandatory_ports_rightValues");
@@ -1667,13 +1714,6 @@
             saveFusionRule(selected_fusion_operator, optional_ports, mandatory_ports, threshold, correlation)
         }
         function saveFusionRule(name, optional_ports, mandatory_ports, threshold, correlation) {
-            // var new_data = {
-            //     optional_ports: optional_ports,
-            //     mandatory_ports: mandatory_ports,
-            //     optional_ports_threshold: threshold,
-            //     correlation: correlation
-            // };
-            
             var new_data = {
                 optional_ports: optional_ports,
                 mandatory_ports: mandatory_ports,
@@ -1688,6 +1728,37 @@
             var btn = document.getElementById("myInfo_fusionOperator_btn_confirm");
             btn.removeEventListener("click", confirmFusionRule)
             toggleFusionOperatorWindow();
+        }
+        function loadModeInfo(obj) {
+            var select_option_event = document.getElementById("myInfo_modeConfiguration_event_list");
+            var table_mode = document.getElementById("myInfo_modeConfiguration_mode_table");
+            var table_mode_ref = table_mode.getElementsByTagName('tbody')[0];
+            
+            obj.part.data.mode_configuration.forEach(function(mode) {
+                mode.events.forEach(function(event) {
+                    var option_text = "";
+                    obj.part.data.mode_configuration.forEach(function(mode) {
+                        option_text += "<option>{0}</option>".format(mode.name);
+                    });
+                    var content = "<tr>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col1\">{0}</td>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col2\">{1}</td>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col3\">\
+                        <select name=\"myInfo_modeConfiguration_mode_select_event\">\
+                        {2}\
+                        </select>\
+                    </td>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col4\">\
+                        <input type=\"checkbox\" name=\"output\"/>\
+                    </td>\
+                    </tr>".format(mode.name, event.name, option_text);
+                var newRow = table_mode_ref.insertRow(table_mode_ref.rows.length);
+                newRow.innerHTML = content;
+                })
+            })
+        }
+        function confirmModeConfiguration() {
+
         }
         var current_processingComponentKey;
         function checkFusionRule(data) {
@@ -2463,7 +2534,9 @@
           grp.findObject("SHAPE").fill = "white";
           grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = null;
           grp.findObject("AREA_STREAM_INPUT_PORT").fill = null;
-          grp.findObject("AREA_EVENT_PORT").fill = null;
+        //   grp.findObject("AREA_EVENT_PORT").fill = null;
+          grp.findObject("AREA_MODECHANGE_PORT").fill = null;
+
         };
       
 
@@ -2474,19 +2547,12 @@
         var portType_atFactory;
         go.Shape.defineFigureGenerator("NoBottomRectangle", function(shape, w, h) {
             // this figure takes one parameter, the size of the corner
-            var p1 = 5;  // default corner size
-            if (shape !== null) {
-            var param1 = shape.parameter1;
-            if (!isNaN(param1) && param1 >= 0) p1 = param1;  // can't be negative or NaN
-            }
-            p1 = Math.min(p1, w / 2);
-            p1 = Math.min(p1, h / 2);  // limit by whole height or by half height?
             var geo = new go.Geometry();
             // a single figure consisting of straight lines and quarter-circle arcs
-            geo.add(new go.PathFigure(0, h, false)
+            geo.add(new go.PathFigure(0, h*0.87, false)
              .add(new go.PathSegment(go.PathSegment.Line, 0, 0))
              .add(new go.PathSegment(go.PathSegment.Line, w, 0))
-             .add(new go.PathSegment(go.PathSegment.Line, w, h)));
+             .add(new go.PathSegment(go.PathSegment.Line, w, h*0.87)));
             // geo.add(new go.PathFigure(0, p1)
             //         .add(new go.PathSegment(go.PathSegment.Arc, 180, 90, p1, p1, p1, p1))
             //         .add(new go.PathSegment(go.PathSegment.Line, w - p1, 0))
@@ -2494,8 +2560,6 @@
             //         .add(new go.PathSegment(go.PathSegment.Line, w, h))
             //         .add(new go.PathSegment(go.PathSegment.Line, 0, h).close()));
             // don't intersect with two top corners when used in an "Auto" Panel
-            geo.spot1 = new go.Spot(0, 0, 0.3 * p1, 0.3 * p1);
-            geo.spot2 = new go.Spot(1, 1, -0.3 * p1, 0);
             return geo;
         });
 
@@ -2519,6 +2583,11 @@
             	if(node.name === "FACTORY") {
                     grp.zOrder = node.zOrder-1;
                     console.log("yes factory");
+                }
+                if(node.category === "modeChangeInputPort") {
+                    grp.findObject("MODE_A").visible = true;
+                    var data = [{"name": "Mode A", "events": [{"name": "event_1", "next_mode": "Mode A", "output_internal_data_items": false}]}]
+                    myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(grp.key), "mode_configuration", data)
                 }
             },
 
@@ -2562,18 +2631,64 @@
                         || selectedName === "EVENT_OUTPUT_PORT"
                         || selectedName === "EVENT_DELEGATION_INPUT_PORT"
                         || selectedName === "EVENT_DELEGATION_OUTPUT_PORT") {
+                // if(isIncoming_toFactory) {
+                //     grp.findObject("AREA_EVENT_PORT").fill = "yellow";
+                //     posY_atFactory = grp_loc.y - grp_height/2-10;
+                //   return true; 
+                // } else {
+                //   node.position = new go.Point(node_loc.x, posY_atFactory);
+                //   if(selectedName === "EVENT_INPUT_PORT") update_portType(node, "EVENT_DELEGATION_INPUT_PORT");
+                //   if(selectedName === "EVENT_OUTPUT_PORT") update_portType(node, "EVENT_DELEGATION_OUTPUT_PORT");
+                //   //addLog("add new event port!");
+                //   return true;
+                // }
+              } else if(selectedName === "MODECHANGE_INPUT_PORT" 
+                        || selectedName === "MODECHANGE_OUTPUT_PORT"
+                        || selectedName === "MODECHANGE_DELEGATION_INPUT_PORT"
+                        || selectedName === "MODECHANGE_DELEGATION_OUTPUT_PORT") {
                 if(isIncoming_toFactory) {
-                    grp.findObject("AREA_EVENT_PORT").fill = "yellow";
-                    posY_atFactory = grp_loc.y - grp_height/2-10;
-                  return true; 
+                    grp.findObject("AREA_MODECHANGE_PORT").fill = "yellow";
+                    var flag = false;
+                    myDiagram.nodes.each(function(part) {
+                        if(part.data.category === node.data.category
+                            && part.data.group === grp.key) flag = true;
+                        return;
+                    })
+                    if(flag) {
+                        return false;
+                    }    
+                    if(selectedName === "MODECHANGE_INPUT_PORT") {
+                        // grp_loc = grp.findObject("SHAPE").position;
+                        
+                        
+                        posX_atFactory = grp_loc.x - grp_width/2 + 10;
+                        posY_atFactory = grp_loc.y - grp_height/2;
+                        myDiagram.nodes.each(function(part) {
+                            if(part.data.group === grp.key && part.data.category === "modeChangeOutputPort") {
+                                part.position = new go.Point(part.location.x, posY_atFactory)
+                            }
+                        })
+                    }
+                    if(selectedName === "MODECHANGE_OUTPUT_PORT") {
+                        if(grp.findObject("MODE_A").visible) {
+                            posX_atFactory = grp_loc.x + grp_width/2 - 30;
+                            posY_atFactory = grp_loc.y - grp_height/2 + 10;
+                        }
+                        else {
+                            posX_atFactory = grp_loc.x + grp_width/2 - 30;
+                            posY_atFactory = grp_loc.y - grp_height/2 - 10;
+                        }
+                    } 
+                    return true; 
                 } else {
-                  node.position = new go.Point(node_loc.x, posY_atFactory);
-                  if(selectedName === "EVENT_INPUT_PORT") update_portType(node, "EVENT_DELEGATION_INPUT_PORT");
-                  if(selectedName === "EVENT_OUTPUT_PORT") update_portType(node, "EVENT_DELEGATION_OUTPUT_PORT");
-                  //addLog("add new event port!");
-                  return true;
+                    node.position = new go.Point(posX_atFactory, posY_atFactory);
+                    if(selectedName === "MODECHANGE_INPUT_PORT") update_portType(node, "MODECHANGE_DELEGATION_INPUT_PORT");
+                    if(selectedName === "MODECHANGE_OUTPUT_PORT") update_portType(node, "MODECHANGE_DELEGATION_OUTPUT_PORT");
+                    //addLog("add new event port!");
+                    return true;
                 }
-              } else {
+              } 
+              else {
                 if(isIncoming_toFactory) grp.findObject("SHAPE").fill = "#FBB5B5";
                 return true; 
 
@@ -2605,6 +2720,27 @@
                             return flag;
                         }
                     )
+                ),
+                $("ContextMenuButton",
+                  $(go.TextBlock, {margin: 5, width: 150}, "Configure Mode"),
+                  {
+                      click: configureMode_contextMenu
+                  },
+                  new go.Binding("visible", "", 
+                        function(o) {
+                            var flag = false;
+                            myDiagram.nodes.each(function(node) {
+                                if(node.category === "modeChangeInputPort") {
+                                    console.log(node.data.group)
+                                    if(node.data.group === o.key) {
+                                        flag = true;
+                                        return;
+                                    }
+                                }
+                            })
+                            return flag;
+                        }
+                    )
                 )
                 // more ContextMenuButtons would go here
             )  // end Adornment
@@ -2614,7 +2750,8 @@
             { 
               name: "SHAPE" ,
               fill: "white", stroke: "black", parameter1: 10, strokeWidth: 3, 
-              width: 450, height: 250,
+              width: 350, height: 250,
+              minSize: new go.Size( 350, 200 ),
             }, 
             new go.Binding("width", "WIDTH").makeTwoWay(),
             new go.Binding("height", "HEIGHT").makeTwoWay(),     
@@ -2676,9 +2813,21 @@
               alignmentFocus: new go.Spot(1,0.5,0,0),              
               }            
           ),
+        //   $(go.Shape, "Rectangle",
+        //     { 
+        //       name: "AREA_EVENT_PORT",
+        //       stretch: go.GraphObject.Horizontal,
+        //       fill: null, stroke: null, strokeWidth: 0,
+        //       height: 30,
+        //       opacity: 0.5,
+        //       alignment: go.Spot.BottomLeft,
+        //       alignmentFocus: new go.Spot(0,0,0,0),              
+        //     }  
+            
+        //   ),
           $(go.Shape, "Rectangle",
             { 
-              name: "AREA_EVENT_PORT",
+              name: "AREA_MODECHANGE_PORT",
               stretch: go.GraphObject.Horizontal,
               fill: null, stroke: null, strokeWidth: 0,
               height: 30,
@@ -2686,17 +2835,277 @@
               alignment: go.Spot.TopLeft,
               alignmentFocus: new go.Spot(0,0,0,0),              
             }  
-            
           ),
-          $(go.Shape, "NoBottomRectangle",
-            { 
-              name: "LABEL" ,
-              fill: "white", stroke: "", strokeWidth: 3, 
-              width: 50, height: 20,
-              alignment: new go.Spot(0.03, 0, 0, 0),
-              alignmentFocus: go.Spot.BottomLeft,
-            }, 
-          ),  
+          $(go.Panel, "Spot", 
+            {
+                name: "MODE_A",
+                alignment: new go.Spot(0.1, 0.03, 0, 0),
+                alignmentFocus: go.Spot.BottomLeft,
+                click: function(e, obj) { 
+                    factory_mode_select_map.set(obj.part.data.key, 0);
+                    obj.findObject("MODE_A").findObject("TEXT").stroke = "blue"
+                    obj.findObject("MODE_A").findObject("TEXT").font = "bold 10pt sans-serif"
+                    obj.panel.findObject("MODE_B").findObject("TEXT").stroke = "black"
+                    obj.panel.findObject("MODE_B").findObject("TEXT").font = "normal 10pt sans-serif"
+                    obj.panel.findObject("MODE_C").findObject("TEXT").stroke = "black"
+                    obj.panel.findObject("MODE_C").findObject("TEXT").font = "normal 10pt sans-serif"
+                    obj.panel.findObject("MODE_D").findObject("TEXT").stroke = "black"
+                    obj.panel.findObject("MODE_D").findObject("TEXT").font = "normal 10pt sans-serif"
+                }
+            },
+            new go.Binding("visible", "", function(o) {
+                if(!o.mode_configuration) {
+                    return false;
+                }
+                if(o.mode_configuration[0]) 
+                    return true;
+                return false;
+            }),
+            new go.Binding("alignment", "HEIGHT", function(data, node) {
+                var new_y = Math.max(0.0507 * Math.exp(-0.002* data), 0.0052);
+                return new go.Spot(0.1, new_y, 0, 0);
+            }),
+            $(go.Shape, "NoBottomRectangle",
+                { 
+                    stroke: "black", strokeWidth: 3, 
+                    width: 70, height: 20 
+                },
+                new go.Binding("width", "WIDTH", function(data, node) {
+                    return data * 0.2;
+                })
+            ),
+            $(go.TextBlock, "Mode A",
+                { 
+                    name: "TEXT",
+                    alignment: go.Spot.Center, 
+                    width: 67, height: 17, background: 'white', 
+                    textAlign: 'center',
+                    stroke: "blue",
+                    font: 'bold 10pt sans-serif'
+                },
+                new go.Binding("width", "WIDTH", function(data, node) {
+                    return data * 0.2 - 3;
+                }),
+                new go.Binding("text", "mode_configuration", function(data, node) {
+                    return data[0].name;
+                }),
+                new go.Binding("stroke", "", function(data, node) {
+                    var value = factory_mode_select_map.get(data.key);
+                    if(value === 0 || value === undefined) {
+                        return "blue";
+                    }
+                    return 'black';
+                }),
+                new go.Binding("font", "", function(data, node) {
+                    var value = factory_mode_select_map.get(data.key);
+                    if(value === 0 || value === undefined) {
+                        return "bold 10pt sans-serif";
+                    }
+                    return 'normal 10pt sans-serif';
+                })
+            )
+          ),
+          $(go.Panel, "Spot", 
+            {
+                name: "MODE_B",
+                alignment: new go.Spot(0.3, 0.03, 0, 0),
+                alignmentFocus: go.Spot.BottomLeft,
+                click: function(e, obj) { 
+                    factory_mode_select_map.set(obj.part.data.key, 1);
+                    obj.panel.findObject("MODE_A").findObject("TEXT").stroke = "black"
+                    obj.panel.findObject("MODE_A").findObject("TEXT").font = "normal 10pt sans-serif"
+                    obj.findObject("MODE_B").findObject("TEXT").stroke = "blue"
+                    obj.findObject("MODE_B").findObject("TEXT").font = "bold 10pt sans-serif"
+                    obj.panel.findObject("MODE_C").findObject("TEXT").stroke = "black"
+                    obj.panel.findObject("MODE_C").findObject("TEXT").font = "normal 10pt sans-serif"
+                    obj.panel.findObject("MODE_D").findObject("TEXT").stroke = "black"
+                    obj.panel.findObject("MODE_D").findObject("TEXT").font = "normal 10pt sans-serif"
+                }
+            },
+            new go.Binding("alignment", "HEIGHT", function(data, node) {
+                var new_y = Math.max(0.0507 * Math.exp(-0.002* data), 0.0052);
+                return new go.Spot(0.3, new_y, 0, 0);
+            }),
+            new go.Binding("visible", "", function(o) {
+                if(!o.mode_configuration) {
+                    return false;
+                }
+                if(o.mode_configuration[1]) 
+                    return true;
+                return false;
+            }),
+            $(go.Shape, "NoBottomRectangle",
+                { 
+                    stroke: "black", strokeWidth: 3, 
+                    width: 70, height: 20 
+                },
+                new go.Binding("width", "WIDTH", function(data, node) {
+                    return data * 0.2;
+                })
+            ),
+            $(go.TextBlock, "Mode B",
+                { 
+                    name: "TEXT",
+                    alignment: go.Spot.Center, 
+                    width: 67, height: 17, background: 'white', 
+                    textAlign: 'center'
+                },
+                new go.Binding("width", "WIDTH", function(data, node) {
+                    return data * 0.2 - 3;
+                }),
+                new go.Binding("text", "mode_configuration", function(data, node) {
+                    return data[1].name;
+                }),
+                new go.Binding("stroke", "", function(data, node) {
+                    var value = factory_mode_select_map.get(data.key);
+                    if(value === 1) {
+                        return "blue";
+                    }
+                    return 'black';
+                }),
+                new go.Binding("font", "", function(data, node) {
+                    var value = factory_mode_select_map.get(data.key);
+                    if(value === 1) {
+                        return "bold 10pt sans-serif";
+                    }
+                    return 'normal 10pt sans-serif';
+                })
+            )
+          ),
+          $(go.Panel, "Spot", 
+            {
+                name: "MODE_C",
+                alignment: new go.Spot(0.5, 0.03, 0, 0),
+                alignmentFocus: go.Spot.BottomLeft,
+                click: function(e, obj) { 
+                    factory_mode_select_map.set(obj.part.data.key, 2);
+                    obj.panel.findObject("MODE_A").findObject("TEXT").stroke = "black"
+                    obj.panel.findObject("MODE_A").findObject("TEXT").font = "normal 10pt sans-serif"
+                    obj.panel.findObject("MODE_B").findObject("TEXT").stroke = "black"
+                    obj.panel.findObject("MODE_B").findObject("TEXT").font = "normal 10pt sans-serif"
+                    obj.findObject("MODE_C").findObject("TEXT").stroke = "blue"
+                    obj.findObject("MODE_C").findObject("TEXT").font = "bold 10pt sans-serif"
+                    obj.panel.findObject("MODE_D").findObject("TEXT").stroke = "black"
+                    obj.panel.findObject("MODE_D").findObject("TEXT").font = "normal 10pt sans-serif"
+                }
+            },
+            new go.Binding("visible", "", function(o) {
+                if(!o.mode_configuration) {
+                    return false;
+                }
+                if(o.mode_configuration[2]) 
+                    return true;
+                return false;
+            }),
+            new go.Binding("alignment", "HEIGHT", function(data, node) {
+                var new_y = Math.max(0.0507 * Math.exp(-0.002* data), 0.0052);
+                return new go.Spot(0.5, new_y, 0, 0);
+            }),
+            $(go.Shape, "NoBottomRectangle",
+                { 
+                    stroke: "black", strokeWidth: 3, 
+                    width: 70, height: 20 
+                },
+                new go.Binding("width", "WIDTH", function(data, node) {
+                    return data * 0.2;
+                })
+            ),
+            $(go.TextBlock, "Mode C",
+                { 
+                    name: "TEXT",
+                    alignment: go.Spot.Center, 
+                    width: 67, height: 17, background: 'white', 
+                    textAlign: 'center'
+                },
+                new go.Binding("width", "WIDTH", function(data, node) {
+                    return data * 0.2 - 3;
+                }),
+                new go.Binding("text", "mode_configuration", function(data, node) {
+                    return data[2].name;
+                }),
+                new go.Binding("stroke", "", function(data, node) {
+                    var value = factory_mode_select_map.get(data.key);
+                    if(value === 2) {
+                        return "blue";
+                    }
+                    return 'black';
+                }),
+                new go.Binding("font", "", function(data, node) {
+                    var value = factory_mode_select_map.get(data.key);
+                    if(value === 2) {
+                        return "bold 10pt sans-serif";
+                    }
+                    return 'normal 10pt sans-serif';
+                })
+            )
+          ),
+          $(go.Panel, "Spot", 
+            {
+                name: "MODE_D",
+                alignment: new go.Spot(0.7, 0.03, 0, 0),
+                alignmentFocus: go.Spot.BottomLeft,
+                click: function(e, obj) { 
+                    factory_mode_select_map.set(obj.part.data.key, 3);
+                    obj.panel.findObject("MODE_A").findObject("TEXT").stroke = "black"
+                    obj.panel.findObject("MODE_A").findObject("TEXT").font = "normal 10pt sans-serif"
+                    obj.panel.findObject("MODE_B").findObject("TEXT").stroke = "black"
+                    obj.panel.findObject("MODE_B").findObject("TEXT").font = "normal 10pt sans-serif"
+                    obj.panel.findObject("MODE_C").findObject("TEXT").stroke = "black"
+                    obj.panel.findObject("MODE_C").findObject("TEXT").font = "normal 10pt sans-serif"
+                    obj.findObject("MODE_D").findObject("TEXT").stroke = "blue"
+                    obj.findObject("MODE_D").findObject("TEXT").font = "bold 10pt sans-serif"
+                }
+            },
+            new go.Binding("visible", "", function(o) {
+                if(!o.mode_configuration) {
+                    return false;
+                }
+                if(o.mode_configuration[3]) 
+                    return true;
+                return false;
+            }),
+            new go.Binding("alignment", "HEIGHT", function(data, node) {
+                var new_y = Math.max(0.0507 * Math.exp(-0.002* data), 0.0052);
+                return new go.Spot(0.7, new_y, 0, 0);
+            }),
+            $(go.Shape, "NoBottomRectangle",
+                { 
+                    stroke: "black", strokeWidth: 3, 
+                    width: 70, height: 20 
+                },
+                new go.Binding("width", "WIDTH", function(data, node) {
+                    return data * 0.2;
+                })
+            ),
+            $(go.TextBlock, "Mode D",
+                { 
+                    name: "TEXT",
+                    alignment: go.Spot.Center, 
+                    width: 67, height: 17, background: 'white', 
+                    textAlign: 'center'
+                },
+                new go.Binding("width", "WIDTH", function(data, node) {
+                    return data * 0.2 - 3;
+                }),
+                new go.Binding("text", "mode_configuration", function(data, node) {
+                    return data[3].name;
+                }),
+                new go.Binding("stroke", "", function(data, node) {
+                    var value = factory_mode_select_map.get(data.key);
+                    if(value === 3) {
+                        return "blue";
+                    }
+                    return 'black';
+                }),
+                new go.Binding("font", "", function(data, node) {
+                    var value = factory_mode_select_map.get(data.key);
+                    if(value === 3) {
+                        return "bold 10pt sans-serif";
+                    }
+                    return 'normal 10pt sans-serif';
+                })
+            )
+          ),
         ); 
       }  
           
@@ -3610,6 +4019,18 @@
                 name_count = name_count + 1;
             }while(model.findNodeDataForKey(new_name) !== null);
         }
+        else if(data.category === "modeChangeInputPort") {
+            do {
+                new_name = "mode_change_input_port_" + name_count;
+                name_count = name_count + 1;
+            }while(model.findNodeDataForKey(new_name) !== null);
+        }
+        else if(data.category === "modeChangeOutputPort") {
+            do {
+                new_name = "mode_change_output_port_" + name_count;
+                name_count = name_count + 1;
+            }while(model.findNodeDataForKey(new_name) !== null);
+        }
         return new_name;
     //   if (data.key === undefined || model.findNodeDataForKey(data.key) !== null) {
     //     console.log("YES NEW KEY");
@@ -4032,6 +4453,8 @@
     // fusion opeartor view window
     $("#infoDraggable_fusionOperator").draggable({ handle: "#infoDraggableHandle_fusionOperator" });
 
+    // mode configuration view window
+    $("#infoDraggable_modeConfiguration").draggable({ handle: "#infoDraggableHandle_modeConfiguration" });
     
     console.log("call init()");
     init();    
@@ -4758,6 +5181,20 @@ function toggleFusionOperatorWindow() {
   }
   warning_text.style.visibility = "hidden";
 }
+function toggleModeConfigurationWindow() {
+  //console.log("toggleFusionOperatorWindow()");
+  var modeConfigurationWindow = document.getElementById("infoDraggable_modeConfiguration");
+  var visible = modeConfigurationWindow.style.visibility;
+  var warning_text = document.getElementById("myInfo_modeConfiguration_text_syntax");
+  warning_text.innerHTML = "Something wrong";
+  if(visible === "visible") {
+      modeConfigurationWindow.style.visibility = "hidden";
+  }
+  else {
+    modeConfigurationWindow.style.visibility = "visible";
+  }
+  warning_text.style.visibislity = "hidden";
+}
 function isNotConfiguringFusionRule() {
     return !configuring_fusionRule;
 }
@@ -5095,20 +5532,79 @@ function isNotConfiguringFusionRule() {
             <button id="myInfo_fusionOperator_btn_confirm"type="button" onclick="">Confirm</button>
             <button id="myInfo_fusionOperator_btn_cancel"type="button" onclick="toggleFusionOperatorWindow()">Cancel</button>
         </div>
-<!--           <input type="text" id="newName_buildUnit" style="position: absolute; left: 5px; top: 145px; width: 100px"><br>
-    <button type="button" onclick="addBuildUnit()" style="position: absolute; left: 5px; top: 167px; width: 100px;">Add BuildUnit</button>
-    <button type="button" onclick="removeBuildUnit()" style="position: absolute; left: 110px; top: 167px; width: 130px;">Remove BuildUnit</button>
-    <div style="font-size: 13px; position: absolute; left: 118px; top: 32px;">Name:</div>
-    <input type="text" id="selectedInfo_buildUnit_name" readonly style="width: 125px; position: absolute; left: 160px; top: 30px;">
-    <div  style="font-size: 13px; position: absolute; left: 118px; top: 57px;">Veiw:</div> 
-    <input type="checkbox" id="selectedInfo_buildUnit_view" onclick="toggleView_buildUnit()" style="position: absolute; left: 156px; top: 57px;"> 
-
-    <div  style="font-size: 13px; position: absolute; left: 135px; top: 135px;">Only view checked <br> build unit</div> 
-    <input type="checkbox" id="onlyViewCheckedBuildUnit" onclick="updateShow_buildUnit()" style="position: absolute; left: 110px; top: 140px;">  -->
-    
     </div>
   </div>
+  <div id="infoDraggable_modeConfiguration" class="draggable" style="z-index: 9; visibility: hidden; display: inline-block; vertical-align: top; padding: 5px; top: 150px; left: 150px;  height: 600px; width: 500px">
+    <div id="myInfo_modeConfiguration">
+        <div>
+            <div id="infoDraggableHandle_modeConfiguration" class="handle">Mode Configuration</div>
+            <div style="margin-bottom: 5px;">
+                <div id="myInfo_modeConfiguration_name">Name</div>
+                <input type="text" id="selected_factory" readonly>
+            </div>
+            <div style="margin-bottom: 5px;">
+                <div id="myInfo_modeConfiguration_events">
+                    <div>
+                        Event List
+                    </div>
+                    <div>
+                        <select id="myInfo_modeConfiguration_event_list" size="5" multiple></select>
+                    </div>
+                    <div id="myInfo_modeConfiguration_new_event">
+                        <input type="text" id="myInfo_modeConfiguration_input_event" placeholder="New event..."/>
+                        <button onclick="" id="myInfo_modeConfiguration_btn_addEvent">Add</button>
+                    </div>
 
+                </div>
+            </div>
+            <div style="margin-bottom: 5px;">
+                <div id="myInfo_modeConfiguration_events">
+                    <div>
+                        Mode List
+                    </div>
+                    <div>
+                        <table id="myInfo_modeConfiguration_mode_table">
+                            <thead >
+                                <tr>
+                                    <th class="myInfo_modeConfiguration_mode_table_header myInfo_modeConfiguration_mode_table_col1">Mode</th>
+                                    <th class="myInfo_modeConfiguration_mode_table_header myInfo_modeConfiguration_mode_table_col2">Event</th>
+                                    <th class="myInfo_modeConfiguration_mode_table_header myInfo_modeConfiguration_mode_table_col3">Next Mode</th>
+                                    <th class="myInfo_modeConfiguration_mode_table_header myInfo_modeConfiguration_mode_table_col4">Output Internal Data Items</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+
+                            </tbody>
+
+                            <!-- <tr id="myInfo_modeConfiguration_mode_table_row">
+                                <td class="myInfo_modeConfiguration_mode_table_col1">Mode A</td>
+                                <td class="myInfo_modeConfiguration_mode_table_col2">GPS_signal_found</td>
+                                <td class="myInfo_modeConfiguration_mode_table_col3">
+                                    <select name="numbers">
+                                        <option value="1" selected>One</option>
+                                        <option value="2" selected>Two</option>
+                                        <option value="3" selected>Three</option>
+                                      </select>
+                                </td>
+                                <td class="myInfo_modeConfiguration_mode_table_col4"><input type="checkbox" name="news2" value="1"></td>
+                            </tr> -->
+                        </table>
+                    </div>
+                    <div id="myInfo_modeConfiguration_new_event">
+                        <input type="text" id="myInfo_modeConfiguration_input_mode" placeholder="New mode..."/>
+                        <button onclick="" id="myInfo_modeConfiguration_btn_addMode">Add</button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        <div id="myInfo_modeConfiguration_text_syntax">Something wrong</div>
+        <div id ="myInfo_modeConfiguration_btn_div">
+            <button id="myInfo_modeConfiguration_btn_confirm"type="button" onclick="">Confirm</button>
+            <button id="myInfo_modeConfiguration_btn_cancel"type="button" onclick="toggleModeConfigurationWindow()">Cancel</button>
+        </div>
+    </div>
+  </div>
 
 
   <div class="container clearfix">

@@ -457,3 +457,64 @@ splashHighlight {
   font-weight: bold;
   visibility: hidden;
 }
+#myInfo_modeConfiguration {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+#myInfo_modeConfiguration_event_list {
+  width: 100%;
+}
+#myInfo_modeConfiguration_new_event {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+#myInfo_modeConfiguration_input_event {
+  width: 79%;
+}
+#myInfo_modeConfiguration_btn_addEvent {
+  width: 20%;
+}
+#myInfo_modeConfiguration_mode_table {
+  width: 100%;
+  border: 1px solid #444444;
+}
+.myInfo_modeConfiguration_mode_table_header {
+  border-bottom: 1px solid #444444;
+}
+#myInfo_modeConfiguration_input_mode {
+  width: 79%;
+}
+#myInfo_modeConfiguration_btn_addMode {
+  width: 20%;
+}
+
+.myInfo_modeConfiguration_mode_table_col1 {
+  width: 27%;
+  text-align: center;
+}
+.myInfo_modeConfiguration_mode_table_col2 {
+  width: 27%;
+  text-align: center;
+}
+.myInfo_modeConfiguration_mode_table_col3 {
+  width: 27%;
+  text-align: center;
+}
+.myInfo_modeConfiguration_mode_table_col4 {
+  width: 15%;
+  text-align: center;
+}
+#myInfo_modeConfiguration_btn_div {
+  display: flex;
+  flex-direction: row;
+}
+#myInfo_modeConfiguration_btn_confirm {
+  width: 50%;
+}
+#myInfo_modeConfiguration_btn_cancel {
+  width: 50%;
+}
