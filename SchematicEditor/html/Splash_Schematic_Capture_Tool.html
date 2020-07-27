@@ -156,6 +156,8 @@
     var fusionRule_confirm_event_listener = null;
     var selected_fusion_operator = null;
     var factory_mode_select_map = new Map();
+    var set_mode;
+    var set_event;
     function init() {
 
         var externalDroppedObjectName = "NONE";
@@ -1735,8 +1737,10 @@
             var select_option_event = document.getElementById("myInfo_modeConfiguration_event_list");
             var table_mode = document.getElementById("myInfo_modeConfiguration_mode_table");
             var table_mode_ref = table_mode.getElementsByTagName('tbody')[0];
-            var set_event = new Set();
+            set_mode = new Set();
+            set_event = new Set();
             obj.part.data.mode_configuration.forEach(function(mode) {
+                set_mode.add(mode.name);
                 mode.events.forEach(function(event) {
                     set_event.add(event.name)
                     var option_text = "";
@@ -1775,10 +1779,11 @@
             var mode_name = document.getElementById("myInfo_modeConfiguration_input_mode").value;
             var options = select_option_event.options;
             var option_text = "";
-            for(var i = 0; i < options.length; i++) {
-                option_text += "<option>{0}</option>".format(options[i].text);
-            }
-               
+            set_mode.add(mode_name)
+            set_mode.forEach(function(mode) {
+                option_text += "<option>{0}</option>".format(mode);
+            })
+            sync_mode_select(option_text);
             for(var i = 0; i < options.length; i++) {
                 var content = "<tr>\
                     <td class=\"myInfo_modeConfiguration_mode_table_col1\">{0}</td>\
@@ -1796,6 +1801,19 @@
                 newRow.innerHTML = content;
             }
         }
+        function sync_mode_select(option_text) {
+            var table_mode = document.getElementById("myInfo_modeConfiguration_mode_table").getElementsByTagName('tbody')[0];
+            for (var i = 0, row; row = table_mode.rows[i]; i++) {
+                console.log(row.cells[2])
+                row.cells[2].innerHTML = "<td class=\"myInfo_modeConfiguration_mode_table_col3\">\
+                        <select name=\"myInfo_modeConfiguration_mode_select_event\">\
+                        {0}\
+                        </select>\
+                    </td>".format(option_text)
+            }
+           
+        }
+        
         var current_processingComponentKey;
         function checkFusionRule(data) {
             var text = document.getElementById("myInfo_fusionOperator_text_syntax");
