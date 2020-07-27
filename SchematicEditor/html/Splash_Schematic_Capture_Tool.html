@@ -1649,9 +1649,11 @@
             var name = obj.part.key;
             console.log(name)
             document.getElementById("selected_factory").value = name;
-            var confirm = document.getElementById("myInfo_modeConfiguration_btn_confirm");
+            var btn_confirm = document.getElementById("myInfo_modeConfiguration_btn_confirm");
+            var btn_addMode = document.getElementById("myInfo_modeConfiguration_btn_addMode");
             loadModeInfo(obj)
-            confirm.addEventListener('click', confirmModeConfiguration);
+            btn_confirm.addEventListener('click', confirmModeConfiguration);
+            btn_addMode.addEventListener('click', addMode);
         }
         function loadFusionRule(obj) {
             var select_option_left = document.getElementById("myInfo_fusionOperator_mandatory_ports_leftValues");
@@ -1733,9 +1735,10 @@
             var select_option_event = document.getElementById("myInfo_modeConfiguration_event_list");
             var table_mode = document.getElementById("myInfo_modeConfiguration_mode_table");
             var table_mode_ref = table_mode.getElementsByTagName('tbody')[0];
-            
+            var set_event = new Set();
             obj.part.data.mode_configuration.forEach(function(mode) {
                 mode.events.forEach(function(event) {
+                    set_event.add(event.name)
                     var option_text = "";
                     obj.part.data.mode_configuration.forEach(function(mode) {
                         option_text += "<option>{0}</option>".format(mode.name);
@@ -1756,9 +1759,42 @@
                 newRow.innerHTML = content;
                 })
             })
+            set_event.forEach(function(event) {
+                var option = document.createElement("option");
+                option.text = event;
+                select_option_event.add(option);
+            })
         }
         function confirmModeConfiguration() {
-
+           
+        }
+        function addMode() {
+            var select_option_event = document.getElementById("myInfo_modeConfiguration_event_list");
+            var table_mode = document.getElementById("myInfo_modeConfiguration_mode_table");
+            var table_mode_ref = table_mode.getElementsByTagName('tbody')[0];
+            var mode_name = document.getElementById("myInfo_modeConfiguration_input_mode").value;
+            var options = select_option_event.options;
+            var option_text = "";
+            for(var i = 0; i < options.length; i++) {
+                option_text += "<option>{0}</option>".format(options[i].text);
+            }
+               
+            for(var i = 0; i < options.length; i++) {
+                var content = "<tr>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col1\">{0}</td>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col2\">{1}</td>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col3\">\
+                        <select name=\"myInfo_modeConfiguration_mode_select_event\">\
+                        {2}\
+                        </select>\
+                    </td>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col4\">\
+                        <input type=\"checkbox\" name=\"output\"/>\
+                    </td>\
+                    </tr>".format(mode_name, options[i].text, option_text);
+                var newRow = table_mode_ref.insertRow(table_mode_ref.rows.length);
+                newRow.innerHTML = content;
+            }
         }
         var current_processingComponentKey;
         function checkFusionRule(data) {
