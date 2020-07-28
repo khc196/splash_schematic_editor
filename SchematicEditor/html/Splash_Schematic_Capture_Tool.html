@@ -332,16 +332,15 @@
                     var selected = e.subject.part;
                     externalDroppedObjectName = "NONE";
                     internalSelectedObjectName = selected.name;
-
                     //setDefaultProperty(selected);
-
                     updateCurrentObject(selected);
                     //relocatePort(selected);
-
                     inspector.inspectObject();
                     inspector2.inspectObject();   
                 },
-
+                ObjectDoubleClicked: function(e) {
+                    console.log("ObjectDoubleClicked()");
+                },
                 ChangingSelection: function(e) {
 
                     //inheritBuildUnit(e);
@@ -747,7 +746,8 @@
           ),
           //new go.Binding("isShadowed", "segArray", go.Binding.toString()).makeTwoWay(),
           $(go.Shape,
-            { name: "SHAPE", strokeWidth: 1, stroke: "black" }));
+            { name: "SHAPE", strokeWidth: 1, stroke: "black" }),
+        );
       // node template helpers
       var sharedToolTip =
         $("ToolTip",
@@ -1062,7 +1062,9 @@
             }
           });
         }
+        function setChannelName(e, obj) {
 
+        }
         function splash_streamPortStyle() {
           return {
             name: "STREAM_PORT",
@@ -1090,7 +1092,18 @@
                     $(go.TextBlock, {margin: 5, width: 150}, "Align to"),
                     { 
                       click: alignToPort 
-                    })
+                    }),
+                  $("ContextMenuButton",
+                    $(go.TextBlock, {margin: 5, width: 150}, "Set Channel Name"),
+                    { 
+                      click: setChannelName 
+                    },
+                    new go.Binding("visible", "", 
+                        function(o) {
+                            return o.PORT_TYPE === "STREAM_OUTPUT_PORT";
+                        }
+                    )
+                  ),
                   // more ContextMenuButtons would go here
               )  // end Adornment
             },
@@ -1188,7 +1201,7 @@
             nextState = !cur_shp.fromLinkable;
           }
 
-          toggleAllEventPort_sync(mydiagram, nextState);
+          toggleAllEventPort_sync(myDiagram, nextState);
         }
 
         function toggleAllEventPort_sync(current_diagram, nextState) {
