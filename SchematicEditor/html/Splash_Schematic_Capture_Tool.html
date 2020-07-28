@@ -263,7 +263,39 @@
                     inspector.inspectObject();
                     inspector2.inspectObject();
                     },
-                    
+                SelectionDeleted: function(e) {
+                    console.log("SelectionDeleted()");
+                    e.subject.each( function(part) 
+                    {
+                        if(part.category === "modeChangeInputPort") {
+                            factory_mode_select_map.set(part.data.group, 0);
+                            myDiagram.nodes.each(function(node) {
+                                if(node.key === part.data.group) {
+                                    myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(node.key), "mode_configuration", "")
+                                }
+                                else if(node.part.data.group === part.data.group) {
+                                    myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(node.key), "mode", "")
+                                    node.visible = true;
+                                }
+                            })
+                        }
+                        else {
+                            var flag = false;
+                            myDiagram.nodes.each(function(node) {
+                                if(node.part.data.mode === part.data.mode) {
+                                    flag = true;
+                                    return false;
+                                }
+                            })
+                            myDiagram.nodes.each(function(node) {
+                                if(node.part.data.category === "modeChangeInputPort" && node.part.data.group === part.data.group) {
+                                    node.deletable = !flag;
+                                    return false;
+                                }
+                            })
+                        }
+                    });
+                },
                 ClipboardPasted: function(e) {
                     console.log("ClipboardPasted()");
                     //e.subject.part.key = createKeyUUID();
@@ -427,80 +459,79 @@
 
             // 1. factory
             if(part.name === "FACTORY") {          
-            it_memeberParts = part.memberParts;
-            // 1-1. factory, delegation port and atmoic component
-            if(!notAssigned_buildUnit(part.data.buildUnit)) {
-                it_memeberParts.each(function(node){
-                if(node.name === "FACTORY") {
-                    node.data.buildUnit = part.data.buildUnit;
-                    inheritBuildUnit(node);
+                it_memeberParts = part.memberParts;
+                // 1-1. factory, delegation port and atmoic component
+                if(!notAssigned_buildUnit(part.data.buildUnit)) {
+                    it_memeberParts.each(function(node){
+                    if(node.name === "FACTORY") {
+                        node.data.buildUnit = part.data.buildUnit;
+                        inheritBuildUnit(node);
+                    }
+                    if(node.name === "STREAM_DELEGATION_PORT") {
+                        node.data.buildUnit = part.data.buildUnit;
+                    }
+                    if(node.name === "SOURCE"
+                        || node.name === "SINK"
+                        || node.name === "PROCESSING"
+                        || node.name === "FUSION") {
+                        node.data.buildUnit = part.data.buildUnit;
+                        inheritBuildUnit(node);
+                    }
+                    });
+                } else {
+                    it_memeberParts.each(function(node){
+                    if(node.name === "STREAM_DELEGATION_PORT") {
+                        node.data.buildUnit = undefined;
+                    }
+                    });
                 }
-                if(node.name === "STREAM_DELEGATION_PORT") {
-                    node.data.buildUnit = part.data.buildUnit;
-                }
-                if(node.name === "SOURCE"
-                    || node.name === "SINK"
-                    || node.name === "PROCESSING"
-                    || node.name === "FUSION") {
-                    node.data.buildUnit = part.data.buildUnit;
-                    inheritBuildUnit(node);
-                }
-                });
-            } else {
-                it_memeberParts.each(function(node){
-                if(node.name === "STREAM_DELEGATION_PORT") {
-                    node.data.buildUnit = undefined;
-                }
-                });
             }
-            }
-
             // 2. atomic component
             if(part.name === "SOURCE"
             || part.name === "SINK"
             || part.name === "PROCESSING"
             || part.name === "FUSION") {
-            it_memeberParts = part.memberParts;
-            // port
-            it_memeberParts.each(function(node){
-                if(node.name === "STREAM_INPUT_PORT"
-                || node.name === "STREAM_OUTPUT_PORT") {
-                node.data.buildUnit = part.data.buildUnit;
-                }
-            });
+                it_memeberParts = part.memberParts;
+                // port
+                it_memeberParts.each(function(node){
+                    if(node.name === "STREAM_INPUT_PORT"
+                    || node.name === "STREAM_OUTPUT_PORT") {
+                    node.data.buildUnit = part.data.buildUnit;
+                    }
+                });
             }
 
             // 3. channel
             var it_links;
 
             if(part.name === "FACTORY") {
-            it_memeberParts = part.memberParts;
-            it_memeberParts.each(function(node){
-                if(node.name === "STREAM_DELEGATION_PORT") {
-                it_links = node.findLinksConnected();
-                it_links.each(function(link){
-                    if(link.fromNode.data.buildUnit == link.toNode.data.buildUnit) {
-                    link.data.buildUnit = link.fromNode.data.buildUnit;
+                it_memeberParts = part.memberParts;
+                it_memeberParts.each(function(node){
+                    if(node.name === "STREAM_DELEGATION_PORT") {
+                    it_links = node.findLinksConnected();
+                    it_links.each(function(link){
+                        if(link.fromNode.data.buildUnit == link.toNode.data.buildUnit) {
+                        link.data.buildUnit = link.fromNode.data.buildUnit;
+                        }
+                    });
                     }
                 });
-                }
-            });
             } else if(part.name === "SOURCE"
             || part.name === "SINK"
             || part.name === "PROCESSING"
             || part.name === "FUSION") {
-            it_memeberParts = part.memberParts;
-            it_memeberParts.each(function(node){
-                if(node.name === "STREAM_INPUT_PORT"
-                || node.name === "STREAM_OUTPUT_PORT") {
-                it_links = node.findLinksConnected();
-                it_links.each(function(link){
-                    if(link.fromNode.data.buildUnit == link.toNode.data.buildUnit) {
-                    link.data.buildUnit = link.fromNode.data.buildUnit;
+                it_memeberParts = part.memberParts;
+                it_memeberParts.each(function(node){
+                    if(node.name === "STREAM_INPUT_PORT"
+                    || node.name === "STREAM_OUTPUT_PORT") {
+                    it_links = node.findLinksConnected();
+                    it_links.each(function(link){
+                        if(link.fromNode.data.buildUnit == link.toNode.data.buildUnit) {
+                        link.data.buildUnit = link.fromNode.data.buildUnit;
+                        }
+                    });
                     }
                 });
-                }
-            });
             }        
         }
 
@@ -516,8 +547,8 @@
         function updateCurrentObject(part) {
             console.log('updateCurrentObject()');
             relocatePort(part);
-            updatebuiilUnit(part);
-            //inheritBuildUnit(part);
+            // updatebuiilUnit(part);
+            // inheritBuildUnit(part);
             updateObjectBindings(part);
             // if(part.name == "FUSION") {
             //     UpdatePropertyWindow_fusionOperator(part);
@@ -1120,7 +1151,7 @@
               e.diagram.commitTransaction("Toggle Input");
             }
           }
-				); 
+        ); 
       }     
       
       
@@ -1157,7 +1188,7 @@
             nextState = !cur_shp.fromLinkable;
           }
 
-          toggleAllEventPort_sync(e.diagram, nextState);
+          toggleAllEventPort_sync(mydiagram, nextState);
         }
 
         function toggleAllEventPort_sync(current_diagram, nextState) {
@@ -1343,6 +1374,91 @@
       
       // mode change port template definition
       {
+        function toggleAllModeChangePort(e,obj) {
+          var cur_shp = obj.findObject("MODECHANGE_PORT");
+          var nextState;
+
+          if(obj.name === "MODECHANGE_INPUT_PORT") {
+            nextState = !cur_shp.toLinkable;
+          } else if(obj.name === "MODECHANGE_OUTPUT_PORT") {
+            nextState = !cur_shp.fromLinkable;
+          } else if(obj.name === "MODECHANGE_DELEGATION_INPUT_PORT") {
+            nextState = !cur_shp.toLinkable;
+          } else if(obj.name === "MODECHANGE_DELEGATION_OUTPUT_PORT") {
+            nextState = !cur_shp.fromLinkable;
+          }
+          toggleAllModeChangePort_sync(myDiagram, nextState);
+        }
+
+        function toggleAllModeChangePort_sync(current_diagram, nextState) {
+          current_diagram.nodes.each(function(node) {
+            if (node.name === "MODECHANGE_INPUT_PORT" 
+                || node.name === "MODECHANGE_DELEGATION_INPUT_PORT"
+                || node.name === "MODECHANGE_OUTPUT_PORT"
+                || node.name === "MODECHANGE_DELEGATION_OUTPUT_PORT") {
+                var shp = node.findObject("MODECHANGE_PORT");             
+                if(node.name === "MODECHANGE_INPUT_PORT") {
+                    shp.toSpot = go.Spot.Top;
+                    shp.fromSpot = go.Spot.Top;
+                    if(nextState === true) {                
+                        shp.toLinkable = true;
+                        shp.stroke = "#FF00FF";
+                        shp.strokeWidth = 2;
+                    } else {
+                        shp.toLinkable = false;
+                        shp.stroke = "black";
+                        shp.strokeWidth = 1;
+                    }
+                } else if (node.name === "MODECHANGE_DELEGATION_INPUT_PORT") {
+                    shp.toSpot = go.Spot.Top;
+                    shp.fromSpot = go.Spot.Bottom;
+                    if(nextState === true) { 
+                        shp.toLinkable = true;
+                        shp.stroke = "#FF00FF";
+                        shp.strokeWidth = 2;
+                    } else {             
+                        shp.toLinkable = false;
+                        shp.stroke = "black";
+                        shp.strokeWidth = 1;
+                    } 
+                } else if(node.name === "MODECHANGE_OUTPUT_PORT") {
+                    shp.toSpot = go.Spot.Top;
+                    shp.fromSpot = go.Spot.Top;
+                    if(nextState === true) {                
+                        shp.fromLinkable = true;
+                        shp.stroke = "#FF00FF";
+                        shp.strokeWidth = 2;
+                    } else {             
+                        shp.fromLinkable = false;
+                        shp.stroke = "black";
+                        shp.strokeWidth = 1;
+                    }
+                } else if (node.name === "MODECHANGE_DELEGATION_OUTPUT_PORT"){
+                    shp.toSpot = go.Spot.Bottom;
+                    shp.fromSpot = go.Spot.Top;
+                    if(nextState === true) { 
+                        shp.fromLinkable = true;
+                        shp.stroke = "#FF00FF";
+                        shp.strokeWidth = 2;
+                    } else {             
+                        shp.fromLinkable = false;
+                        shp.stroke = "black";
+                        shp.strokeWidth = 1;
+                    } 
+                } else {}
+
+              updateStates(current_diagram);
+            }
+          });
+        }
+
+        function activateAllModeChangePort(current_diagram) {
+          toggleAllModeChangePort_sync(current_diagram, true);
+        }
+
+        function deactivateAllModeChangePort(current_diagram) {
+          toggleAllModeChangePort_sync(current_diagram, false);
+        }        
         function splash_modeChangePortStyle() {
           return {
             name: "MODECHANGE_PORT",
@@ -1373,27 +1489,16 @@
             { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.5-0.231, 0.3) }),
           $(go.Shape, "Circle", 
             { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.5+0.231, 0.3) }),
-          $(go.Shape, "Rectangle", splash_eventPortStyle(),
+          $(go.Shape, "Rectangle", splash_modeChangePortStyle(),
             { portId: "", alignment: new go.Spot(0.5, 0.5) }),
+          new go.Binding("name", "PORT_TYPE").makeTwoWay(),
           { doubleClick: function(e, obj) {
               e.diagram.startTransaction("Toggle Input");
-              var shp = obj.findObject("EVENT_PORT");             
-
-                if(shp.toLinkable === false) {                
-                  shp.toLinkable = true;
-                  shp.stroke = "#FF00FF";
-                  shp.strokeWidth = 2;
-                } else {
-                  shp.toLinkable = false;
-                  shp.stroke = "black";
-                  shp.strokeWidth = 1;
-                }
-
-              updateStates(e.diagram);
+              toggleAllModeChangePort(e.diagram, obj);
               e.diagram.commitTransaction("Toggle Input");
             }
           }
-				); 
+        ); 
       
       
       var template_modeChangeOutputPort = 
@@ -1410,29 +1515,17 @@
             { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.5-0.231, 0.7) }),
           $(go.Shape, "Circle", 
             { fill: "black", width: 4, height: 4, stroke: null, alignment: new go.Spot(0.5+0.231, 0.7) }),
-          $(go.Shape, "Rectangle", splash_eventPortStyle(),
+          $(go.Shape, "Rectangle", splash_modeChangePortStyle(),
+          { portId: "", alignment: new go.Spot(0.5, 0.5) }
           ),
-          $(go.Shape, "Rectangle", splash_eventPortStyle(),
-            { portId: "", alignment: new go.Spot(0.5, 0.5) }),
+          new go.Binding("name", "PORT_TYPE").makeTwoWay(),
           { doubleClick: function(e, obj) {
-              e.diagram.startTransaction("Toggle Input");
-              var shp = obj.findObject("EVENT_PORT");             
-
-                if(shp.fromLinkable === false) {                
-                  shp.fromLinkable = true;
-                  shp.stroke = "#FF00FF";
-                  shp.strokeWidth = 2;
-                } else {             
-                  shp.fromLinkable = false;
-                  shp.stroke = "black";
-                  shp.strokeWidth = 1;
-                }
-
-              updateStates(e.diagram);
-              e.diagram.commitTransaction("Toggle Input");
+              e.diagram.startTransaction("Toggle Output");
+              toggleAllModeChangePort(e.diagram, obj);
+              e.diagram.commitTransaction("Toggle Output");
             }
           }
-				); 
+        ); 
       }
       
       
@@ -2046,6 +2139,7 @@
           grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = null;
           grp.findObject("AREA_STREAM_INPUT_PORT").fill = null;
           grp.findObject("AREA_EVENT_PORT").fill = null;
+          grp.findObject("AREA_MODECHANGE_PORT").fill = null;
         };
         
         var isIncoming_toProcessingComponent = false;
@@ -2140,7 +2234,21 @@
                   //addLog("add a new stream port!");
                   return true;
                 }
-              } else if(selectedName === "EVENT_INPUT_PORT" 
+              } 
+              else if(selectedName === "MODECHANGE_OUTPUT_PORT"
+                        || selectedName === "MODECHANGE_DELEGATION_OUTPUT_PORT") {
+                if(isIncoming_toProcessingComponent) {
+                  grp.findObject("AREA_MODECHANGE_PORT").fill = "yellow";
+                  posY_atProcessingComponent = grp_loc.y - grp_height/2-10;
+                  return true; 
+                }
+                else {
+                  node.position = new go.Point(node_loc.x, posY_atProcessingComponent);
+                  //addLog("add new event port!");
+                  return true;
+                }
+              }
+              else if(selectedName === "EVENT_INPUT_PORT" 
                         || selectedName === "EVENT_OUTPUT_PORT"
                         || selectedName === "EVENT_DELEGATION_INPUT_PORT"
                         || selectedName === "EVENT_DELEGATION_OUTPUT_PORT") {
@@ -2155,7 +2263,8 @@
                   //addLog("add new event port!");
                   return true;
                 }
-              } else { 
+              } 
+              else { 
                 return false; 
               }
             },
@@ -2212,6 +2321,17 @@
           $(go.Shape, "Rectangle",
             { 
               name: "AREA_EVENT_PORT",
+              stretch: go.GraphObject.Horizontal,
+              fill: null, stroke: null, strokeWidth: 0,
+              height: 30,
+              opacity: 0.5,
+              alignment: go.Spot.TopLeft,
+              alignmentFocus: new go.Spot(0,0,0,0),              
+            },             
+          ),
+          $(go.Shape, "Rectangle",
+            { 
+              name: "AREA_MODECHANGE_PORT",
               stretch: go.GraphObject.Horizontal,
               fill: null, stroke: null, strokeWidth: 0,
               height: 30,
@@ -2768,10 +2888,12 @@
             },
             mouseDragLeave: function(e, grp, next) { 
               console.log("mouseDragLeave()");
+              console.log(myDiagram.selection)
               highlightFactory(e, grp, false); 
+              highlighted_factory = null;
               isIncoming_toFactory = false;              
+              myDiagram.commandHandler.addTopLevelParts(myDiagram.selection, true);
             },                          
-
             memberAdded: function(grp, node) {
                 console.log("memberAdded");
             	if(node.name === "FACTORY") {
@@ -2782,9 +2904,25 @@
                     grp.findObject("MODE_A").visible = true;
                     var data = [{"name": "Mode A", "events": [{"name": "event_1", "next_mode": "Mode A", "output_internal_data_items": false}]}]
                     myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(grp.key), "mode_configuration", data)
+                    myDiagram.nodes.each(function(node2) {
+                        if(node2.part.data.group === grp.key) {
+                            myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(node2.key), "mode", grp.part.data.mode_configuration[factory_mode_select_map.get(grp.key)].name)
+                        }
+                    })
                     return;
                 }
                 if(grp.part.data.mode_configuration) {
+                    var flag = false;
+                    if(node.category !== "modeChangeInputPort" && factory_mode_select_map.get(grp.key) > 0) {
+                        flag = true;
+                    }
+                    myDiagram.nodes.each(function(node2){
+                        if(node2.part.data.category === "modeChangeInputPort" && node2.part.data.group === grp.key) {
+                            if(flag) {
+                                node2.deletable = false;
+                            }
+                        }
+                    })
                     myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(node.key), "mode", grp.part.data.mode_configuration[factory_mode_select_map.get(grp.key)].name)
                 }
             },
@@ -2806,25 +2944,25 @@
               || selectedName === "STREAM_INPUT_PORT" 
               || selectedName === "STREAM_OUTPUT_PORT"
               || selectedName === "STREAM_DELEGATION_PORT") {
-                if(isIncoming_toFactory) {   
+                // if(isIncoming_toFactory) {   
                      
-                  if(grp_loc.x - node_loc.x > 0) {
-                    grp.findObject("AREA_STREAM_INPUT_PORT").fill = "green";
-                    posX_atFactory = grp_loc.x - grp_width/2 - 10;
-                    portType_atFactory = "STREAM_DELEGATION_PORT";
-                    return true;
-                  }
-                  else {
-                    grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = "blue";
-                    posX_atFactory = grp_loc.x + grp_width/2 - 10;
-                    portType_atFactory = "STREAM_DELEGATION_PORT";
-                  }                  
-                  return true; 
-                } else {
-                  update_portType(node, portType_atFactory);
-                  node.position = new go.Point(posX_atFactory, node_loc.y);
-                  return true;
-                }
+                //   if(grp_loc.x - node_loc.x > 0) {
+                //     grp.findObject("AREA_STREAM_INPUT_PORT").fill = "green";
+                //     posX_atFactory = grp_loc.x - grp_width/2 - 10;
+                //     portType_atFactory = "STREAM_DELEGATION_PORT";
+                //     return true;
+                //   }
+                //   else {
+                //     grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = "blue";
+                //     posX_atFactory = grp_loc.x + grp_width/2 - 10;
+                //     portType_atFactory = "STREAM_DELEGATION_PORT";
+                //   }                  
+                //   return true; 
+                // } else {
+                //   update_portType(node, portType_atFactory);
+                //   node.position = new go.Point(posX_atFactory, node_loc.y);
+                //   return true;
+                // }
               } else if(selectedName === "EVENT_INPUT_PORT" 
                         || selectedName === "EVENT_OUTPUT_PORT"
                         || selectedName === "EVENT_DELEGATION_INPUT_PORT"
@@ -2840,10 +2978,14 @@
                 //   //addLog("add new event port!");
                 //   return true;
                 // }
-              } else if(selectedName === "MODECHANGE_INPUT_PORT" 
-                        || selectedName === "MODECHANGE_OUTPUT_PORT"
-                        || selectedName === "MODECHANGE_DELEGATION_INPUT_PORT"
-                        || selectedName === "MODECHANGE_DELEGATION_OUTPUT_PORT") {
+              } else if(selectedName === "MODECHANGE_OUTPUT_PORT"
+                        || selectedName === "MODECHANGE_DELEGATION_OUTPUT_PORT")
+              {
+
+              }else if(selectedName === "MODECHANGE_INPUT_PORT" 
+                        // || selectedName === "MODECHANGE_OUTPUT_PORT"
+                        || selectedName === "MODECHANGE_DELEGATION_INPUT_PORT") {
+                        // || selectedName === "MODECHANGE_DELEGATION_OUTPUT_PORT") {
                 if(isIncoming_toFactory) {
                     grp.findObject("AREA_MODECHANGE_PORT").fill = "yellow";
                     var flag = false;
@@ -2855,33 +2997,28 @@
                     if(flag) {
                         return false;
                     }    
-                    if(selectedName === "MODECHANGE_INPUT_PORT") {
-                        // grp_loc = grp.findObject("SHAPE").position;
-                        
-                        
-                        posX_atFactory = grp_loc.x - grp_width/2 + 10;
-                        posY_atFactory = grp_loc.y - grp_height/2;
-                        myDiagram.nodes.each(function(part) {
-                            if(part.data.group === grp.key && part.data.category === "modeChangeOutputPort") {
-                                part.position = new go.Point(part.location.x, posY_atFactory)
-                            }
-                        })
-                    }
-                    if(selectedName === "MODECHANGE_OUTPUT_PORT") {
-                        if(grp.findObject("MODE_A").visible) {
-                            posX_atFactory = grp_loc.x + grp_width/2 - 30;
-                            posY_atFactory = grp_loc.y - grp_height/2 + 10;
+                    posX_atFactory = grp_loc.x - grp_width/2 + 10;
+                    posY_atFactory = grp_loc.y - grp_height/2;
+                    myDiagram.nodes.each(function(part) {
+                        if(part.data.group === grp.key && part.data.category === "modeChangeOutputPort") {
+                            part.position = new go.Point(part.location.x, posY_atFactory)
                         }
-                        else {
-                            posX_atFactory = grp_loc.x + grp_width/2 - 30;
-                            posY_atFactory = grp_loc.y - grp_height/2 - 10;
-                        }
-                    } 
+                    })
+                    // if(selectedName === "MODECHANGE_OUTPUT_PORT") {
+                    //     if(grp.findObject("MODE_A").visible) {
+                    //         posX_atFactory = grp_loc.x + grp_width/2 - 30;
+                    //         posY_atFactory = grp_loc.y - grp_height/2 + 10;
+                    //     }
+                    //     else {
+                    //         posX_atFactory = grp_loc.x + grp_width/2 - 30;
+                    //         posY_atFactory = grp_loc.y - grp_height/2 - 10;
+                    //     }
+                    // } 
                     return true; 
                 } else {
                     node.position = new go.Point(posX_atFactory, posY_atFactory);
-                    if(selectedName === "MODECHANGE_INPUT_PORT") update_portType(node, "MODECHANGE_DELEGATION_INPUT_PORT");
-                    if(selectedName === "MODECHANGE_OUTPUT_PORT") update_portType(node, "MODECHANGE_DELEGATION_OUTPUT_PORT");
+                    // if(selectedName === "MODECHANGE_INPUT_PORT") update_portType(node, "MODECHANGE_DELEGATION_INPUT_PORT");
+                    // if(selectedName === "MODECHANGE_OUTPUT_PORT") update_portType(node, "MODECHANGE_DELEGATION_OUTPUT_PORT");
                     //addLog("add new event port!");
                     return true;
                 }
@@ -2889,8 +3026,8 @@
               else {
                 if(isIncoming_toFactory) grp.findObject("SHAPE").fill = "#FBB5B5";
                 return true; 
-
               }
+              return false;
             },
 
             contextMenu:     // define a context menu for each node
@@ -2943,7 +3080,6 @@
                 // more ContextMenuButtons would go here
             )  // end Adornment
           },
-   
           $(go.Shape, "RoundedRectangle",
             { 
               name: "SHAPE" ,
@@ -2955,7 +3091,6 @@
             new go.Binding("height", "HEIGHT").makeTwoWay(),     
 
           ),  
-
           $(go.TextBlock,
             {
               editable: true,
@@ -4240,6 +4375,12 @@
                 name_count = name_count + 1;
             }while(model.findNodeDataForKey(new_name) !== null);
         }
+        else if(data.category === "sinkComponent") {
+            do {
+                new_name = "sink_component_" + name_count;
+                name_count = name_count + 1;
+            }while(model.findNodeDataForKey(new_name) !== null);
+        }
         else if(data.category === "fusionOperator") {
             do {
                 new_name = "fusion_operator_" + name_count;
@@ -4261,15 +4402,27 @@
                 name_count = name_count + 1;
             }while(model.findNodeDataForKey(new_name) !== null);
         }
+        else if(data.category === "eventInputPort") {
+            do {
+                new_name = "event_input_port_" + name_count;
+                name_count = name_count + 1;
+            }while(model.findNodeDataForKey(new_name) !== null);
+        }
+        else if(data.category === "eventOutputPort") {
+            do {
+                new_name = "event_output_port_" + name_count;
+                name_count = name_count + 1;
+            }while(model.findNodeDataForKey(new_name) !== null);
+        }
         else if(data.category === "modeChangeInputPort") {
             do {
-                new_name = "mode_change_input_port_" + name_count;
+                new_name = "modechange_input_port_" + name_count;
                 name_count = name_count + 1;
             }while(model.findNodeDataForKey(new_name) !== null);
         }
         else if(data.category === "modeChangeOutputPort") {
             do {
-                new_name = "mode_change_output_port_" + name_count;
+                new_name = "modechange_output_port_" + name_count;
                 name_count = name_count + 1;
             }while(model.findNodeDataForKey(new_name) !== null);
         }
