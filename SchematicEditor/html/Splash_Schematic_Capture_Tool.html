@@ -1649,13 +1649,18 @@
         function configureMode_contextMenu(e, obj) {
             toggleModeConfigurationWindow();
             var name = obj.part.key;
+            origin_data = JSON.parse(JSON.stringify(obj.part.data.mode_configuration));
             console.log(name)
             document.getElementById("selected_factory").value = name;
             var btn_confirm = document.getElementById("myInfo_modeConfiguration_btn_confirm");
             var btn_addMode = document.getElementById("myInfo_modeConfiguration_btn_addMode");
+            var btn_addEvent = document.getElementById("myInfo_modeConfiguration_btn_addEvent");
+            var btn_cancel = document.getElementById("myInfo_modeConfiguration_btn_cancel");
             loadModeInfo(obj)
             btn_confirm.addEventListener('click', confirmModeConfiguration);
             btn_addMode.addEventListener('click', addMode);
+            btn_addEvent.addEventListener('click', addEvent);
+            btn_cancel.addEventListener('click', cancelModeConfiguration);
         }
         function loadFusionRule(obj) {
             var select_option_left = document.getElementById("myInfo_fusionOperator_mandatory_ports_leftValues");
@@ -1735,8 +1740,13 @@
         }
         function loadModeInfo(obj) {
             var select_option_event = document.getElementById("myInfo_modeConfiguration_event_list");
+            var prev_options = select_option_event.options;
+            for(var i = prev_options.length - 1; i >= 0; i--) {
+                prev_options.remove(i);
+            }
             var table_mode = document.getElementById("myInfo_modeConfiguration_mode_table");
             var table_mode_ref = table_mode.getElementsByTagName('tbody')[0];
+            table_mode_ref.innerHTML = ""
             set_mode = new Set();
             set_event = new Set();
             obj.part.data.mode_configuration.forEach(function(mode) {
@@ -1744,8 +1754,8 @@
                 mode.events.forEach(function(event) {
                     set_event.add(event.name)
                     var option_text = "";
-                    obj.part.data.mode_configuration.forEach(function(mode) {
-                        option_text += "<option>{0}</option>".format(mode.name);
+                    obj.part.data.mode_configuration.forEach(function(mode2) {
+                        option_text += "<option>{0}</option>".format(mode2.name);
                     });
                     var content = "<tr>\
                     <td class=\"myInfo_modeConfiguration_mode_table_col1\">{0}</td>\
@@ -1756,34 +1766,109 @@
                         </select>\
                     </td>\
                     <td class=\"myInfo_modeConfiguration_mode_table_col4\">\
-                        <input type=\"checkbox\" name=\"output\"/>\
+                        <input type=\"checkbox\" name=\"output\" {3}/>\
                     </td>\
-                    </tr>".format(mode.name, event.name, option_text);
-                var newRow = table_mode_ref.insertRow(table_mode_ref.rows.length);
-                newRow.innerHTML = content;
+                    </tr>".format(mode.name, event.name, option_text, event.output_internal_data_items ? "checked" : "" );
+                    var newRow = table_mode_ref.insertRow(table_mode_ref.rows.length);
+                    newRow.innerHTML = content;
+                    newRow.getElementsByTagName("select")[0].addEventListener('change', handleSelectChange);
+                    newRow.getElementsByTagName("input")[0].addEventListener('click', handleCheckboxChange);
                 })
             })
+
+            // load event list
             set_event.forEach(function(event) {
                 var option = document.createElement("option");
                 option.text = event;
                 select_option_event.add(option);
             })
         }
-        function confirmModeConfiguration() {
-           
+        function confirmModeConfiguration() {           
+            toggleModeConfigurationWindow();
         }
+        function cancelModeConfiguration() {
+            myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(document.getElementById("selected_factory").value), "mode_configuration", origin_data)
+            toggleModeConfigurationWindow();
+        }
+        function addEvent() {
+            var select_option_event = document.getElementById("myInfo_modeConfiguration_event_list");
+            var table_mode = document.getElementById("myInfo_modeConfiguration_mode_table");
+            var table_mode_ref = table_mode.getElementsByTagName('tbody')[0];
+            var event_name = document.getElementById("myInfo_modeConfiguration_input_event").value;
+    
+    
+            var options = select_option_event.options;
+            var option_text = "";
+            if(set_event.has(event_name) || event_name === "") return;
+            document.getElementById("myInfo_modeConfiguration_input_event").value = "";
+            var new_option = document.createElement("option");
+            new_option.text = event_name;
+            select_option_event.add(new_option);
+
+            set_mode.forEach(function(mode) {
+                option_text += "<option>{0}</option>".format(mode);
+            })
+            var obj = myDiagram.model.findNodeDataForKey(document.getElementById("selected_factory").value);
+            var new_data = JSON.parse(JSON.stringify(obj.mode_configuration));
+            new_data.forEach(function(mode) {
+                mode.events.push({"name": event_name, "next_mode": mode.name, "output_internal_data_items": false});
+            })
+            myDiagram.model.setDataProperty(obj, "mode_configuration", new_data)
+            table_mode_ref.innerHTML = ""
+            obj.mode_configuration.forEach(function(mode) {
+                mode.events.forEach(function(event) {
+                    set_event.add(event.name)
+                    var option_text = "";
+                    obj.mode_configuration.forEach(function(mode2) {
+                        if(event.next_mode === mode2.name) {
+                            option_text += "<option selected=\"selected\">{0}</option>".format(mode2.name);
+                        }
+                        else {
+                            option_text += "<option>{0}</option>".format(mode2.name);
+                        }
+                    });
+                    var content = "<tr>\
+                        <td class=\"myInfo_modeConfiguration_mode_table_col1\">{0}</td>\
+                        <td class=\"myInfo_modeConfiguration_mode_table_col2\">{1}</td>\
+                        <td class=\"myInfo_modeConfiguration_mode_table_col3\">\
+                            <select name=\"myInfo_modeConfiguration_mode_select_event\">\
+                            {2}\
+                            </select>\
+                        </td>\
+                        <td class=\"myInfo_modeConfiguration_mode_table_col4\">\
+                            <input type=\"checkbox\" name=\"output\" {3}/>\
+                        </td>\
+                        </tr>".format(mode.name, event.name, option_text, event.output_internal_data_items ? "checked" : "");
+                    var newRow = table_mode_ref.insertRow(table_mode_ref.rows.length);
+                    newRow.innerHTML = content;
+                    newRow.getElementsByTagName("select")[0].addEventListener('change', handleSelectChange);
+                    newRow.getElementsByTagName("input")[0].addEventListener('click', handleCheckboxChange);
+                })
+            })
+        }
+        
         function addMode() {
             var select_option_event = document.getElementById("myInfo_modeConfiguration_event_list");
             var table_mode = document.getElementById("myInfo_modeConfiguration_mode_table");
             var table_mode_ref = table_mode.getElementsByTagName('tbody')[0];
             var mode_name = document.getElementById("myInfo_modeConfiguration_input_mode").value;
+            if(set_mode.length === 4) return; 
+            if(set_mode.has(mode_name) || mode_name === "") return;
+
+            document.getElementById("myInfo_modeConfiguration_input_mode").value = "";
             var options = select_option_event.options;
             var option_text = "";
             set_mode.add(mode_name)
             set_mode.forEach(function(mode) {
-                option_text += "<option>{0}</option>".format(mode);
+                if(mode === mode_name) {
+                    option_text += "<option selected=\"selected\">{0}</option>".format(mode);
+                }
+                else {
+                    option_text += "<option>{0}</option>".format(mode);
+                }
             })
             sync_mode_select(option_text);
+            var events_data = [];
             for(var i = 0; i < options.length; i++) {
                 var content = "<tr>\
                     <td class=\"myInfo_modeConfiguration_mode_table_col1\">{0}</td>\
@@ -1794,26 +1879,81 @@
                         </select>\
                     </td>\
                     <td class=\"myInfo_modeConfiguration_mode_table_col4\">\
-                        <input type=\"checkbox\" name=\"output\"/>\
+                        <input type=\"checkbox\" name=\"output\" {3}/>\
                     </td>\
                     </tr>".format(mode_name, options[i].text, option_text);
                 var newRow = table_mode_ref.insertRow(table_mode_ref.rows.length);
                 newRow.innerHTML = content;
+                newRow.getElementsByTagName("select")[0].addEventListener('change', handleSelectChange);
+                newRow.getElementsByTagName("input")[0].addEventListener('click', handleCheckboxChange);
+                events_data.push({"name": options[i].text, "next_mode": mode_name, "output_internal_data_items": false});
             }
+            
+            var obj = myDiagram.model.findNodeDataForKey(document.getElementById("selected_factory").value);
+            var new_data = JSON.parse(JSON.stringify(obj.mode_configuration));
+            new_data.push({"name": mode_name, "events": events_data});
+            myDiagram.model.setDataProperty(obj, "mode_configuration", new_data)
         }
+
         function sync_mode_select(option_text) {
             var table_mode = document.getElementById("myInfo_modeConfiguration_mode_table").getElementsByTagName('tbody')[0];
             for (var i = 0, row; row = table_mode.rows[i]; i++) {
-                console.log(row.cells[2])
+                var select_tag = row.cells[2].getElementsByTagName('select')[0]
+                var selected = select_tag.options[select_tag.selectedIndex].text;
                 row.cells[2].innerHTML = "<td class=\"myInfo_modeConfiguration_mode_table_col3\">\
                         <select name=\"myInfo_modeConfiguration_mode_select_event\">\
                         {0}\
                         </select>\
                     </td>".format(option_text)
+                select_tag = row.cells[2].getElementsByTagName('select')[0]
+                for(var j = 0; j < select_tag.options.length; j++) {
+                    if(select_tag.options[j].text === selected) {
+                        select_tag.options[j].selected = true;
+                    }
+                }
+                row.cells[2].getElementsByTagName("select")[0].addEventListener('change', handleSelectChange);
+                row.cells[3].getElementsByTagName("input")[0].addEventListener('click', handleCheckboxChange);
             }
            
         }
-        
+        function handleSelectChange(event) {
+            var selectElement = event.target;
+            var value = selectElement.value;
+            var parentElement = selectElement.parentElement.parentElement;
+            var mode_name = parentElement.cells[0].innerHTML;
+            var event_name = parentElement.cells[1].innerHTML;
+            var obj = myDiagram.model.findNodeDataForKey(document.getElementById("selected_factory").value);
+            var new_data = JSON.parse(JSON.stringify(obj.mode_configuration));
+            new_data.forEach(function(mode) {
+                if(mode.name !== mode_name) 
+                    return
+                mode.events.forEach(function(event) {
+                    if(event.name !== event_name)
+                        return
+                    event.next_mode = value;
+                })
+            })
+            myDiagram.model.setDataProperty(obj, "mode_configuration", new_data)
+        }
+        function handleCheckboxChange(event) {
+            var selectElement = event.target;
+            var value = selectElement.value;
+            var parentElement = selectElement.parentElement.parentElement;
+            var mode_name = parentElement.cells[0].innerHTML;
+            var event_name = parentElement.cells[1].innerHTML;
+            var obj = myDiagram.model.findNodeDataForKey(document.getElementById("selected_factory").value);
+            var new_data = JSON.parse(JSON.stringify(obj.mode_configuration));
+            new_data.forEach(function(mode) {
+                if(mode.name !== mode_name) 
+                    return
+                mode.events.forEach(function(event) {
+                    if(event.name !== event_name)
+                        return
+                    event.output_internal_data_items = value;
+                })
+            })
+            myDiagram.model.setDataProperty(obj, "mode_configuration", new_data)
+        }
         var current_processingComponentKey;
         function checkFusionRule(data) {
             var text = document.getElementById("myInfo_fusionOperator_text_syntax");
@@ -2642,6 +2782,10 @@
                     grp.findObject("MODE_A").visible = true;
                     var data = [{"name": "Mode A", "events": [{"name": "event_1", "next_mode": "Mode A", "output_internal_data_items": false}]}]
                     myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(grp.key), "mode_configuration", data)
+                    return;
+                }
+                if(grp.part.data.mode_configuration) {
+                    myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(node.key), "mode", grp.part.data.mode_configuration[factory_mode_select_map.get(grp.key)].name)
                 }
             },
 
@@ -2905,6 +3049,17 @@
                     obj.panel.findObject("MODE_C").findObject("TEXT").font = "normal 10pt sans-serif"
                     obj.panel.findObject("MODE_D").findObject("TEXT").stroke = "black"
                     obj.panel.findObject("MODE_D").findObject("TEXT").font = "normal 10pt sans-serif"
+                    myDiagram.nodes.each(function(node) {
+                        if(node.part.data.category === "modeChangeInputPort") return;
+                        if(node.part.data.group === obj.part.data.key) {
+                            if(node.part.data.mode !== obj.part.data.mode_configuration[0].name) {
+                                node.visible = false;
+                            }
+                            else {
+                                node.visible = true;
+                            }
+                        }
+                    })
                 }
             },
             new go.Binding("visible", "", function(o) {
@@ -2974,6 +3129,17 @@
                     obj.panel.findObject("MODE_C").findObject("TEXT").font = "normal 10pt sans-serif"
                     obj.panel.findObject("MODE_D").findObject("TEXT").stroke = "black"
                     obj.panel.findObject("MODE_D").findObject("TEXT").font = "normal 10pt sans-serif"
+                    myDiagram.nodes.each(function(node) {
+                        if(node.part.data.category === "modeChangeInputPort") return;
+                        if(node.part.data.group === obj.part.data.key) {
+                            if(node.part.data.mode !== obj.part.data.mode_configuration[1].name) {
+                                node.visible = false;
+                            }
+                            else {
+                                node.visible = true;
+                            }
+                        }
+                    })
                 }
             },
             new go.Binding("alignment", "HEIGHT", function(data, node) {
@@ -3041,6 +3207,17 @@
                     obj.findObject("MODE_C").findObject("TEXT").font = "bold 10pt sans-serif"
                     obj.panel.findObject("MODE_D").findObject("TEXT").stroke = "black"
                     obj.panel.findObject("MODE_D").findObject("TEXT").font = "normal 10pt sans-serif"
+                    myDiagram.nodes.each(function(node) {
+                        if(node.part.data.category === "modeChangeInputPort") return;
+                        if(node.part.data.group === obj.part.data.key) {
+                            if(node.part.data.mode !== obj.part.data.mode_configuration[2].name) {
+                                node.visible = false;
+                            }
+                            else {
+                                node.visible = true;
+                            }
+                        }
+                    })
                 }
             },
             new go.Binding("visible", "", function(o) {
@@ -3108,6 +3285,17 @@
                     obj.panel.findObject("MODE_C").findObject("TEXT").font = "normal 10pt sans-serif"
                     obj.findObject("MODE_D").findObject("TEXT").stroke = "blue"
                     obj.findObject("MODE_D").findObject("TEXT").font = "bold 10pt sans-serif"
+                    myDiagram.nodes.each(function(node) {
+                        if(node.part.data.category === "modeChangeInputPort") return;
+                        if(node.part.data.group === obj.part.data.key) {
+                            if(node.part.data.mode !== obj.part.data.mode_configuration[3].name) {
+                                node.visible = false;
+                            }
+                            else {
+                                node.visible = true;
+                            }
+                        }
+                    })
                 }
             },
             new go.Binding("visible", "", function(o) {
@@ -5239,15 +5427,12 @@ function toggleModeConfigurationWindow() {
   //console.log("toggleFusionOperatorWindow()");
   var modeConfigurationWindow = document.getElementById("infoDraggable_modeConfiguration");
   var visible = modeConfigurationWindow.style.visibility;
-  var warning_text = document.getElementById("myInfo_modeConfiguration_text_syntax");
-  warning_text.innerHTML = "Something wrong";
   if(visible === "visible") {
       modeConfigurationWindow.style.visibility = "hidden";
   }
   else {
     modeConfigurationWindow.style.visibility = "visible";
   }
-  warning_text.style.visibislity = "hidden";
 }
 function isNotConfiguringFusionRule() {
     return !configuring_fusionRule;
@@ -5593,12 +5778,12 @@ function isNotConfiguringFusionRule() {
         <div>
             <div id="infoDraggableHandle_modeConfiguration" class="handle">Mode Configuration</div>
             <div style="margin-bottom: 5px;">
-                <div id="myInfo_modeConfiguration_name">Name</div>
+                <div id="myInfo_modeConfiguration_name" style="font-size: 20px; font-weight: bold;">Name</div>
                 <input type="text" id="selected_factory" readonly>
             </div>
             <div style="margin-bottom: 5px;">
                 <div id="myInfo_modeConfiguration_events">
-                    <div>
+                    <div style="font-size: 20px; font-weight: bold;">
                         Event List
                     </div>
                     <div>
@@ -5613,8 +5798,8 @@ function isNotConfiguringFusionRule() {
             </div>
             <div style="margin-bottom: 5px;">
                 <div id="myInfo_modeConfiguration_events">
-                    <div>
-                        Mode List
+                    <div style="font-size: 20px; font-weight: bold;">
+                        Mode Change Table
                     </div>
                     <div>
                         <table id="myInfo_modeConfiguration_mode_table">
@@ -5652,10 +5837,9 @@ function isNotConfiguringFusionRule() {
                 </div>
             </div>
         </div>
-        <div id="myInfo_modeConfiguration_text_syntax">Something wrong</div>
         <div id ="myInfo_modeConfiguration_btn_div">
             <button id="myInfo_modeConfiguration_btn_confirm"type="button" onclick="">Confirm</button>
-            <button id="myInfo_modeConfiguration_btn_cancel"type="button" onclick="toggleModeConfigurationWindow()">Cancel</button>
+            <button id="myInfo_modeConfiguration_btn_cancel"type="button" onclick="">Cancel</button>
         </div>
     </div>
   </div>
