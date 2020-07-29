@@ -171,6 +171,7 @@
                 initialViewportSpot: go.Spot.TopCenter,
                 draggingTool: $(CustomDraggingTool),
                 layout: $(CustomLayout), 
+                "draggingTool.isGridSnapEnabled": true,
                 "undoManager.isEnabled": true,
                 // commandHandler: new DrawCommandHandler(),  // defined in DrawCommandHandler.js
                 // "commandHandler.archetypeGroupData": { isGroup: true, category: "OfNodes" },
@@ -714,36 +715,7 @@
             shadowOffset: new go.Point(0, 0), shadowBlur: 5, shadowColor: "blue",
           },
           new go.Binding("isShadowed", "isSelected").ofObject(),
-          new go.Binding("points", "segArray", 
-            function(data,node) { 
-              var arr = data.split(",");
-              var list = new go.List();
-
-              list.add(go.Point.parse(arr[0]));
-              list.add(go.Point.parse(arr[1]));
-              list.add(go.Point.parse(arr[2]));
-              list.add(go.Point.parse(arr[3]));
-              list.add(go.Point.parse(arr[4]));
-              list.add(go.Point.parse(arr[5]));
-
-              return list;
-            } 
-          ).makeTwoWay(
-            function (points) {
-              var arr = points.toArray();
-
-              var p0, p1, p2, p3, p4, p5;
-              p0 = go.Point.stringify(arr[0]);
-              p1 = go.Point.stringify(arr[1]);
-              p2 = go.Point.stringify(arr[2]);
-              p3 = go.Point.stringify(arr[3]);
-              p4 = go.Point.stringify(arr[4]);
-              p5 = go.Point.stringify(arr[5]);
-
-              var str = p0 + "," + p1 + "," + p2 + "," + p3 + "," + p4 + "," + p5;
-              return str;
-            }
-          ),
+          
           //new go.Binding("isShadowed", "segArray", go.Binding.toString()).makeTwoWay(),
           $(go.Shape,
             { name: "SHAPE", strokeWidth: 1, stroke: "black" }),
@@ -808,7 +780,12 @@
                   || node.name === "EVENT_DELEGATION_INPUT_PORT"
                   || node.name === "EVENT_DELEGATION_OUTPUT_PORT") {
             if(grp) {
-                node_y = grp_y - grp_height/2 - 10;
+                if(node.name === "EVENT_OUTPUT_PORT") {
+                    node_y = grp_y - grp_height/2 - 25;
+                }
+                else {
+                    node_y = grp_y - grp_height/2 - 10;
+                }
             }
           } else if (node.name === "SOURCE" || node.name === "SINK") {
             if(grp) {
@@ -1075,7 +1052,29 @@
         function isChannelExisting(channel) {
             var flag = false;
             myDiagram.nodes.each(function(node) {
-                if(node.part.data.PORT_TYPE === "STREAM_OUTPUT_PORT" && node.part.data.Channel === channel) {
+                if(node.part.data.category === "STREAM_OUTPUT_PORT" && node.part.data.Channel === channel) {
+                    flag = true;
+                    return false;
+                }
+            })
+            if(flag) {
+                return true;
+            }
+            return false
+        }
+        function setEventName(e, obj) {
+            var event = "";
+            while(true){
+                event = prompt("Event name is","Insert Event Name");  
+                if(!isEventExisting(event)) break;
+                alert("Already Exists");
+            }
+            myDiagram.model.setDataProperty(obj.part.data, "Event", event);
+        }
+        function isEventExisting(event) {
+            var flag = false;
+            myDiagram.nodes.each(function(node) {
+                if(node.part.data.category === "eventOutputPort" && node.part.data.Event === event) {
                     flag = true;
                     return false;
                 }
@@ -1135,7 +1134,7 @@
             ),
           $(go.Shape, "Rectangle", splash_streamPortStyle(),
             { portId: "", alignment: new go.Spot(0.5, 0.5) }),
-            $(go.TextBlock,
+          $(go.TextBlock,
             {
               editable: true,
               alignment: new go.Spot(1.0, 0), alignmentFocus: go.Spot.TopLeft,
@@ -1285,36 +1284,6 @@
             { doubleClick: function(e, obj) {
                 e.diagram.startTransaction("Toggle Input");
                 toggleAllEventPort(obj);
-                // var shp = obj.findObject("EVENT_PORT");             
-                //   if(obj.name === "EVENT_INPUT_PORT") {
-                //     shp.toSpot = go.Spot.Top;
-                //     shp.fromSpot = go.Spot.Top;
-                //     if(shp.toLinkable === false) {                
-                //       shp.toLinkable = true;
-                //       shp.stroke = "#FF00FF";
-                //       shp.strokeWidth = 2;
-                //     } else {
-                //       shp.toLinkable = false;
-                //       shp.stroke = "black";
-                //       shp.strokeWidth = 1;
-                //     }
-                //   } else if (obj.name === "EVENT_DELEGATION_INPUT_PORT") {
-                //     shp.toSpot = go.Spot.Top;
-                //     shp.fromSpot = go.Spot.Bottom;
-                //     if(shp.toLinkable === false || shp.fromLinkable === false) { 
-                //       shp.toLinkable = true;
-                //       shp.fromLinkable = true;
-                //       shp.stroke = "#FF00FF";
-                //       shp.strokeWidth = 2;
-                //     } else {             
-                //       shp.toLinkable = false;
-                //       shp.fromLinkable = false;
-                //       shp.stroke = "black";
-                //       shp.strokeWidth = 1;
-                //     } 
-                //   } else {}
-
-                // updateStates(myDiagram);
                 e.diagram.commitTransaction("Toggle Input");
               }
             }
@@ -1325,8 +1294,22 @@
           $(go.Node, "Spot", splash_portStyle(),
             { 
               name: "EVENT_OUTPUT_PORT",
-              zOrder : 10
-              },
+              zOrder : 10,
+              contextMenu:     // define a context menu for each node
+                $("ContextMenu",  // that has one button
+                  $("ContextMenuButton",
+                    $(go.TextBlock, {margin: 5, width: 150}, "Set Event Name"),
+                    { 
+                      click: setEventName
+                    },
+                    new go.Binding("visible", "", 
+                        function(o) {
+                            return o.category === "eventOutputPort";
+                        }
+                    )
+                  ),
+                )
+            },
             $(go.Shape, "Rectangle", 
               { fill: "white", width: 20, height:20 }),
             $(go.Shape, "ISOProcess", 
@@ -1334,40 +1317,23 @@
             ),
             $(go.Shape, "Rectangle", splash_eventPortStyle(),
               { portId: "", alignment: new go.Spot(0.5, 0.5) }),
+            $(go.TextBlock,
+            {
+              editable: true,
+              alignment: new go.Spot(0.5, 0.0), alignmentFocus: go.Spot.Bottom,
+              textAlign: "center",
+              maxLines: 1,
+              textValidation: function okName(textblock, oldstr, newstr) {
+                                return oldstr === newstr || !isChannelExisting(newstr);
+                              }
+            },
+            new go.Binding("text", "Event").makeTwoWay(),
+          ),
             new go.Binding("name", "PORT_TYPE").makeTwoWay(),
             { doubleClick: function(e, obj) {
                 e.diagram.startTransaction("Toggle Input");
                 var shp = obj.findObject("EVENT_PORT");             
                 toggleAllEventPort(e,obj);
-                //   if(obj.name === "EVENT_OUTPUT_PORT") {
-                //     shp.toSpot = go.Spot.Top;
-                //     shp.fromSpot = go.Spot.Top;
-                //     if(shp.fromLinkable === false) {                
-                //       shp.fromLinkable = true;
-                //       shp.stroke = "#FF00FF";
-                //       shp.strokeWidth = 2;
-                //     } else {             
-                //       shp.fromLinkable = false;
-                //       shp.stroke = "black";
-                //       shp.strokeWidth = 1;
-                //     }
-                //   } else if (obj.name === "EVENT_DELEGATION_OUTPUT_PORT"){
-                //     shp.toSpot = go.Spot.Bottom;
-                //     shp.fromSpot = go.Spot.Top;
-                //     if(shp.toLinkable === false || shp.fromLinkable === false) { 
-                //       shp.toLinkable = true;
-                //       shp.fromLinkable = true;
-                //       shp.stroke = "#FF00FF";
-                //       shp.strokeWidth = 2;
-                //     } else {             
-                //       shp.toLinkable = false;
-                //       shp.fromLinkable = false;
-                //       shp.stroke = "black";
-                //       shp.strokeWidth = 1;
-                //     } 
-                //   } else {}
-
-                // updateStates(myDiagram);
                 e.diagram.commitTransaction("Toggle Input");
               }
             }
@@ -2258,7 +2224,12 @@
                         || selectedName === "EVENT_DELEGATION_OUTPUT_PORT") {
                 if(isIncoming_toProcessingComponent) {
                   grp.findObject("AREA_EVENT_PORT").fill = "yellow";
-                  posY_atProcessingComponent = grp_loc.y - grp_height/2-10;
+                  if(selectedName === "EVENT_OUTPUT_PORT") {
+                    posY_atProcessingComponent = grp_loc.y - grp_height/2-25;
+                  }
+                  else {
+                    posY_atProcessingComponent = grp_loc.y - grp_height/2-10;
+                  }
                   return true; 
                 } else {
                   node.position = new go.Point(node_loc.x, posY_atProcessingComponent);
@@ -4482,7 +4453,10 @@
         var currentObjectName = getCurrentObjectName();
         return (currentObjectName === "STREAM_OUTPUT_PORT" ? true : false);
       }
-      
+      function isEventOutputPort() {
+        var currentObjectName = getCurrentObjectName();
+        return (currentObjectName === "EVENT_OUTPUT_PORT" ? true : false);
+      }
       function isStreamDelegationPort() {
         var currentObjectName = getCurrentObjectName();
         return (currentObjectName === "STREAM_DELEGATION_PORT" ? true : false);
@@ -4549,6 +4523,7 @@
             // "DataType": {readOnly: isChannel, show: hasDataType},
             "key": { readOnly: true },
             "Channel": {show: isStreamOutputPort, type: "string", readOnly: true },
+            "Event": {show: isEventOutputPort, type: "string", readOnly: true},
             "Freshness": {show: hasFreshness, type: "number"},
             "Rate": {show: hasRate, type: "number"},
 
