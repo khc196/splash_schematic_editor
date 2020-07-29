@@ -1059,11 +1059,31 @@
               || part.name === "STREAM_OUTPUT_PORT"
               || part.name === "STREAM_DELEGATION_PORT") {
               part.location = new go.Point(part.location.x, criterion_y);
+              myDiagram.model.setDataProperty(part.data, "loc", part.location);
             }
           });
         }
         function setChannelName(e, obj) {
-
+            var channel = "";
+            while(true){
+                channel = prompt("Channel name is","Insert Channel Name");  
+                if(!isChannelExisting(channel)) break;
+                alert("Already Exists");
+            }
+            myDiagram.model.setDataProperty(obj.part.data, "Channel", channel);
+        }
+        function isChannelExisting(channel) {
+            var flag = false;
+            myDiagram.nodes.each(function(node) {
+                if(node.part.data.PORT_TYPE === "STREAM_OUTPUT_PORT" && node.part.data.Channel === channel) {
+                    flag = true;
+                    return false;
+                }
+            })
+            if(flag) {
+                return true;
+            }
+            return false
         }
         function splash_streamPortStyle() {
           return {
@@ -1089,11 +1109,6 @@
               contextMenu:     // define a context menu for each node
                 $("ContextMenu",  // that has one button
                   $("ContextMenuButton",
-                    $(go.TextBlock, {margin: 5, width: 150}, "Align to"),
-                    { 
-                      click: alignToPort 
-                    }),
-                  $("ContextMenuButton",
                     $(go.TextBlock, {margin: 5, width: 150}, "Set Channel Name"),
                     { 
                       click: setChannelName 
@@ -1104,8 +1119,7 @@
                         }
                     )
                   ),
-                  // more ContextMenuButtons would go here
-              )  // end Adornment
+                )
             },
           $(go.Shape, "Rectangle", 
             { width: 20, height:20, },
@@ -1121,46 +1135,22 @@
             ),
           $(go.Shape, "Rectangle", splash_streamPortStyle(),
             { portId: "", alignment: new go.Spot(0.5, 0.5) }),
+            $(go.TextBlock,
+            {
+              editable: true,
+              alignment: new go.Spot(1.0, 0), alignmentFocus: go.Spot.TopLeft,
+              textAlign: "center",
+              maxLines: 1,
+              textValidation: function okName(textblock, oldstr, newstr) {
+                                return oldstr === newstr || !isChannelExisting(newstr);
+                              }
+            },
+            new go.Binding("text", "Channel").makeTwoWay(),
+          ),
           new go.Binding("name", "PORT_TYPE").makeTwoWay(),
           { doubleClick: function(e, obj) {
               e.diagram.startTransaction("Toggle Input");
               toggleAllStreamPort(e.diagram, obj);
-              // var shp = obj.findObject("STREAM_PORT");
-              
-              // if(obj.name === "STREAM_INPUT_PORT") {
-              //   if(shp.toLinkable === false) {                
-              //     shp.toLinkable = true;
-              //     shp.stroke = "#FF00FF";
-              //     shp.strokeWidth = 2;
-              //   } else {
-              //     shp.toLinkable = false;
-              //     shp.stroke = "black";
-              //     shp.strokeWidth = 1;
-              //   }
-              // } else if(obj.name === "STREAM_OUTPUT_PORT") {
-              //   if(shp.fromLinkable === false) {                
-              //     shp.fromLinkable = true;
-              //     shp.stroke = "#FF00FF";
-              //     shp.strokeWidth = 2;
-              //   } else {             
-              //     shp.fromLinkable = false;
-              //     shp.stroke = "black";
-              //     shp.strokeWidth = 1;
-              //   }
-              // } else if(obj.name === "STREAM_DELEGATION_PORT") {
-              //   if(shp.toLinkable === false || shp.fromLinkable === false) { 
-              //     shp.toLinkable = true;
-              //     shp.fromLinkable = true;
-              //     shp.stroke = "#FF00FF";
-              //     shp.strokeWidth = 2;
-              //   } else {             
-              //     shp.toLinkable = false;
-              //     shp.fromLinkable = false;
-              //     shp.stroke = "black";
-              //     shp.strokeWidth = 1;
-              //   }              
-              // } else { }
-              // updateStates(e.diagram);
               e.diagram.commitTransaction("Toggle Input");
             }
           }
@@ -1588,6 +1578,7 @@
             var buildUnit_name;
             while(true){
                 buildUnit_name = prompt("Build Unit name is","Insert Build Unit Name");  
+                if(buildUnit_name === null) return;
                 if(!myDiagram.model.findNodeDataForKey(buildUnit_name)) break;
                 alert("Already Exists");
             }
@@ -4556,9 +4547,10 @@
           properties: {
             
             // "DataType": {readOnly: isChannel, show: hasDataType},
+            "key": { readOnly: true },
+            "Channel": {show: isStreamOutputPort, type: "string", readOnly: true },
             "Freshness": {show: hasFreshness, type: "number"},
             "Rate": {show: hasRate, type: "number"},
-
 
 
             "COMMENTS": {},              
@@ -4580,7 +4572,6 @@
           properties: {
             "category": {readOnly: true},            
             "PORT_TYPE": {readOnly: true,  show: isStreamPort },
-            "key": { readOnly: true },
             "group": { readOnly: true, show: Inspector.showIfNode },
             "isGroup": { show: false },
 
@@ -4877,7 +4868,6 @@
         // 1. relocatePort(part)
         var it_memberParts;
         var memeber_port;
-
         if(part.name == "SOURCE") {
           it_memberParts = part.memberParts;
           memeber_port = it_memberParts.first()
