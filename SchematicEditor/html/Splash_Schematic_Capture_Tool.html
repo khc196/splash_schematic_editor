@@ -71,6 +71,7 @@
 
             function isReady(sup, supers, diag) {
                 var arr = sup.data._members;
+                if(arr === undefined) return false;
                 for (var i = 0; i < arr.length; i++) {
                     var d = arr[i];
                     if (d.category === "buildUnit") continue;
@@ -1558,10 +1559,11 @@
                     || part.name === "FUSION"
                     || part.name === "SOURCE"
                     || part.name === "SINK") {
+                    
                     // part.data.buildUnit = buildUnit_name;
                     // myDiagram_buildUnit.model.setGroupKeyForNodeData(part.data, buildUnit_name);
                     if(part.data.buildUnit)
-                        return;
+                        return true;
                     myDiagram_buildUnit_selectionPane.model.setParentKeyForNodeData(part.data, buildUnit_name);
                 }
                 else if(part.name === "FACTORY") {
@@ -4589,6 +4591,47 @@
 
 
             //console.log("OPEN?"+readString);
+            var newDataArray = []
+            myDiagram.model.nodeDataArray.forEach(function(node){
+                if(node.category === "processingComponent" ||
+                node.category === "fusionOperator" ||
+                node.category === "sourceComponent" ||
+                node.category === "sinkComponent") {
+                    newDataArray.push(node);
+                }
+            })
+            
+            myDiagram_buildUnit_selectionPane.model.nodeDataArray = newDataArray;
+            
+            // share the UndoManager too!
+            myDiagram_buildUnit_selectionPane.model.undoManager = myDiagram.model.undoManager;
+            myDiagram.requestUpdate();
+            // myDiagram_buildUnit.requestUpdate();
+            myDiagram_buildUnit_selectionPane.requestUpdate();
+            myDiagram.model.makeUniqueKeyFunction = setKeyUUID;
+            myDiagram_buildUnit_selectionPane.model.makeUniqueKeyFunction = setKeyUUID;
+            // var arr = myDiagram.model.nodeDataArray;
+            // for (var i = 0; i < arr.length; i++) {
+            //     var data = arr[i];
+            //     var buildUnit = data.buildUnit;
+            //     if (buildUnit) {
+            //         var sdata = myDiagram.model.findNodeDataForKey(buildUnit);
+            //         if (sdata) {
+            //             // update _supers to be an Array of references to node data
+            //             if (!data._buildUnit) {
+            //                 data._buildUnit = [sdata];
+            //             } else {
+            //                 data._buildUnit.push(sdata);
+            //             }
+            //             // update _members to be an Array of references to node data
+            //             if (!sdata._members) {
+            //                 sdata._members = [data];
+            //             } else {
+            //                 sdata._members.push(data);
+            //             }
+            //         }
+            //     }
+            // }
         };
         reader.readAsText(openFile);
         var fileName = openFile.name.substring(0,openFile.name.length-5);
@@ -4599,13 +4642,10 @@
 
         forceSelectTab('SchematicTab');      
         // share all of the data with the tree view
-        myDiagram_buildUnit_selectionPane.model.nodeDataArray = myDiagram.model.nodeDataArray;
+        
 
-        // share the UndoManager too!
-        myDiagram_buildUnit_selectionPane.model.undoManager = myDiagram.model.undoManager;
-        myDiagram.requestUpdate();
-        // myDiagram_buildUnit.requestUpdate();
-        myDiagram_buildUnit_selectionPane.requestUpdate();
+        console.log("openDocument");
+        
     }
               
     // the Overview
