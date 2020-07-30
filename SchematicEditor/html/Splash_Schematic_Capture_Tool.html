@@ -277,6 +277,9 @@
                                 }
                                 else if(node.part.data.group === part.data.group) {
                                     myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(node.key), "mode", "")
+                                    node.part.memberParts.each(function(member) {
+                                        member.visible = true;    
+                                    })
                                     node.visible = true;
                                 }
                             })
@@ -915,10 +918,8 @@
              })
             var ok = (grp !== null
                 ?  
-                    // grp.addMembers(grp.diagram.selection, true) 
                     grp.addMembers(collection, true) 
                 : 
-                    // e.diagram.commandHandler.addTopLevelParts(e.diagram.selection, true);
                     e.diagram.commandHandler.addTopLevelParts(collection, true));
             if (!ok) e.diagram.currentTool.doCancel();
         }
@@ -926,10 +927,8 @@
             console.log("finishDrop_component_buildUnit");
             var ok = (highlighted_factory !== null
                 ?  
-                    // grp.addMembers(grp.diagram.selection, true) 
                     highlighted_factory.addMembers(myDiagram.selection, true) 
                 : 
-                    // e.diagram.commandHandler.addTopLevelParts(e.diagram.selection, true);
                     e.diagram.commandHandler.addTopLevelParts(myDiagram.selection, true));
             highlighted_factory = null;
             buildUnit_dragging = false;
@@ -3166,9 +3165,23 @@
                         if(node.part.data.group === obj.part.data.key) {
                             if(node.part.data.mode !== obj.part.data.mode_configuration[0].name) {
                                 node.visible = false;
+                                node.part.memberParts.each(function(member) {
+                                    member.visible = false;    
+                                    myDiagram.links.each(function(link) {
+                                        if(link.part.data.to === member.key)
+                                            link.visible = false;
+                                    })
+                                })
                             }
                             else {
                                 node.visible = true;
+                                node.part.memberParts.each(function(member) {
+                                    member.visible = true;    
+                                    myDiagram.links.each(function(link) {
+                                        if(link.part.data.to === member.key)
+                                            link.visible = true;
+                                    })
+                                })
                             }
                         }
                     })
@@ -3246,9 +3259,23 @@
                         if(node.part.data.group === obj.part.data.key) {
                             if(node.part.data.mode !== obj.part.data.mode_configuration[1].name) {
                                 node.visible = false;
+                                node.part.memberParts.each(function(member) {
+                                    member.visible = false;    
+                                    myDiagram.links.each(function(link) {
+                                        if(link.part.data.to === member.key)
+                                            link.visible = false;
+                                    })
+                                })
                             }
                             else {
                                 node.visible = true;
+                                node.part.memberParts.each(function(member) {
+                                    member.visible = true;    
+                                    myDiagram.links.each(function(link) {
+                                        if(link.part.data.to === member.key)
+                                            link.visible = true;
+                                    })
+                                })
                             }
                         }
                     })
@@ -3324,9 +3351,23 @@
                         if(node.part.data.group === obj.part.data.key) {
                             if(node.part.data.mode !== obj.part.data.mode_configuration[2].name) {
                                 node.visible = false;
+                                node.part.memberParts.each(function(member) {
+                                    member.visible = false;    
+                                    myDiagram.links.each(function(link) {
+                                        if(link.part.data.to === member.key)
+                                            link.visible = false;
+                                    })
+                                })
                             }
                             else {
                                 node.visible = true;
+                                node.part.memberParts.each(function(member) {
+                                    member.visible = true;    
+                                    myDiagram.links.each(function(link) {
+                                        if(link.part.data.to === member.key)
+                                            link.visible = true;
+                                    })
+                                })
                             }
                         }
                     })
@@ -3402,9 +3443,23 @@
                         if(node.part.data.group === obj.part.data.key) {
                             if(node.part.data.mode !== obj.part.data.mode_configuration[3].name) {
                                 node.visible = false;
+                                node.part.memberParts.each(function(member) {
+                                    member.visible = false;    
+                                    myDiagram.links.each(function(link) {
+                                        if(link.part.data.to === member.key)
+                                            link.visible = false;
+                                    })
+                                })
                             }
                             else {
                                 node.visible = true;
+                                node.part.memberParts.each(function(member) {
+                                    member.visible = true;    
+                                    myDiagram.links.each(function(link) {
+                                        if(link.part.data.to === member.key)
+                                            link.visible = true;
+                                    })
+                                })
                             }
                         }
                     })
