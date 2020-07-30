@@ -4596,13 +4596,20 @@
                 if(node.category === "processingComponent" ||
                 node.category === "fusionOperator" ||
                 node.category === "sourceComponent" ||
-                node.category === "sinkComponent") {
+                node.category === "sinkComponent" ||
+                node.category === "buildUnit") {
                     newDataArray.push(node);
                 }
             })
             
             myDiagram_buildUnit_selectionPane.model.nodeDataArray = newDataArray;
-            
+            myDiagram_buildUnit_selectionPane.nodes.each(function(node) {
+                if(node.part.category === "processingComponent" ||
+                node.part.category === "fusionOperator" ||
+                node.part.category === "sourceComponent" ||
+                node.part.category === "sinkComponent")
+                    myDiagram_buildUnit_selectionPane.model.setParentKeyForNodeData(node.part.data, node.part.data.buildUnit);
+            })
             // share the UndoManager too!
             myDiagram_buildUnit_selectionPane.model.undoManager = myDiagram.model.undoManager;
             myDiagram.requestUpdate();
