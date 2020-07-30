@@ -269,7 +269,7 @@
                     console.log("SelectionDeleted()");
                     e.subject.each( function(part) 
                     {
-                        if(part.category === "modeChangeInputPort") {
+                        if(part.category === "modeChangeInputPort" && part.data.group) {
                             factory_mode_select_map.set(part.data.group, 0);
                             myDiagram.nodes.each(function(node) {
                                 if(node.key === part.data.group) {
