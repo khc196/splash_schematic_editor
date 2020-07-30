@@ -4568,12 +4568,10 @@
         openFile = evt.target.files[0]; // a file object
 
         var readString;
-
         var reader = new FileReader();
         reader.onload = function(event) {
             //console.log('File content:', event.target.result);
             readString = event.target.result.substring(0);
-
             //var 
             //var string_GraphLinksModel = 
 
@@ -4647,7 +4645,7 @@
 
 
 
-        forceSelectTab('SchematicTab');      
+        // forceSelectTab('SchematicTab');      
         // share all of the data with the tree view
         
 
