@@ -2882,7 +2882,8 @@
                     myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(grp.key), "mode_configuration", data)
                     myDiagram.nodes.each(function(node2) {
                         if(node2.part.data.group === grp.key) {
-                            myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(node2.key), "mode", grp.part.data.mode_configuration[factory_mode_select_map.get(grp.key)].name)
+                            if(grp.part.data.mode_configuration[factory_mode_select_map.get(grp.key)])
+                                myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(node2.key), "mode", grp.part.data.mode_configuration[factory_mode_select_map.get(grp.key)].name)
                         }
                     })
                     return;
@@ -2899,7 +2900,8 @@
                             }
                         }
                     })
-                    myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(node.key), "mode", grp.part.data.mode_configuration[factory_mode_select_map.get(grp.key)].name)
+                    if(grp.part.data.mode_configuration[factory_mode_select_map.get(grp.key)])
+                        myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(node.key), "mode", grp.part.data.mode_configuration[factory_mode_select_map.get(grp.key)].name)
                 }
             },
 
@@ -4620,31 +4622,58 @@
     
     var openFile;
     function handleOpenFile(evt) {
+        console.log("handleOpenFile")
         openFile = evt.target.files[0]; // a file object
 
         var readString;
         var reader = new FileReader();
         reader.onload = function(event) {
-            //console.log('File content:', event.target.result);
             readString = event.target.result.substring(0);
-            //var 
-            //var string_GraphLinksModel = 
-
-            //console.log(readString);
             myDiagram.model = go.Model.fromJson(readString);
-            
             var parsedString = JSON.parse(readString);   
-            // buildUnitArray = parsedString.buildUnitArray;
-            // readBuildUnitProperty();
-            //console.log(myDiagram.model.nodeDataArray);
-            //console.log(myDiagram.model.linkDataArray);
-
-            //var parsedString = JSON.parse(readString);          
-            //console.log(parsedString.buildUnitArray);
-
-
-            //console.log("OPEN?"+readString);
+            factory_mode_select_map.clear();
             var newDataArray = []
+            myDiagram.nodes.each(function(node) {
+                var parsedData = parsedString.nodeDataArray.find(function(nodeData) {
+                        if(nodeData.key === node.key) return nodeData;
+                    });
+                
+                node.part.move(go.Point.parse(parsedData.loc), true);
+                if(node.part.data.category === "factory") {
+                    node.part.data.mode_configuration = parsedData.mode_configuration;
+                    factory_mode_select_map.set(node.part.data.key, 0);
+                    var MODE_AREA_NAME_ARRAY = ["MODE_A", "MODE_B", "MODE_C", "MODE_D"];
+                    for(var i = 0; i < node.part.data.mode_configuration.length; i++) {
+                        node.findObject(MODE_AREA_NAME_ARRAY[i]).visible = true;
+                    }
+                    node.memberParts.each(function(node2) {
+                        if(node2.part.data.category === "modeChangeInputPort") return;
+                        node2.part.data.mode = parsedString.nodeDataArray.find(function(nodeData) {
+                            if(nodeData.key === node2.key) return nodeData;
+                        }).mode
+                        if(node2.part.data.mode !== node.part.data.mode_configuration[0].name) {
+                            node2.visible = false;
+                            node2.part.memberParts.each(function(member) {
+                                member.visible = false;    
+                                myDiagram.links.each(function(link) {
+                                    if(link.part.data.to === member.key)
+                                        link.visible = false;
+                                })
+                            })
+                        }
+                        else {
+                            node2.visible = true;
+                            node2.part.memberParts.each(function(member) {
+                                member.visible = true;    
+                                myDiagram.links.each(function(link) {
+                                    if(link.part.data.to === member.key)
+                                        link.visible = true;
+                                })
+                            })
+                        }
+                    })    
+                }
+            })
             myDiagram.model.nodeDataArray.forEach(function(node){
                 if(node.category === "processingComponent" ||
                 node.category === "fusionOperator" ||
@@ -4666,7 +4695,6 @@
             // share the UndoManager too!
             myDiagram_buildUnit_selectionPane.model.undoManager = myDiagram.model.undoManager;
             myDiagram.requestUpdate();
-            // myDiagram_buildUnit.requestUpdate();
             myDiagram_buildUnit_selectionPane.requestUpdate();
             myDiagram.model.makeUniqueKeyFunction = setKeyUUID;
             myDiagram_buildUnit_selectionPane.model.makeUniqueKeyFunction = setKeyUUID;
@@ -5194,7 +5222,7 @@
     function saveDocument() {
       var saveName = getCurrentFileName();
       if (saveName === UnsavedFileName) {
-        saveAsDocument();0
+        saveAsDocument();
       } else {
         setCurrentFileName(saveName);      
 
