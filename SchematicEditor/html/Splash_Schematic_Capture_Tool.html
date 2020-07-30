@@ -4610,28 +4610,28 @@
             myDiagram_buildUnit_selectionPane.requestUpdate();
             myDiagram.model.makeUniqueKeyFunction = setKeyUUID;
             myDiagram_buildUnit_selectionPane.model.makeUniqueKeyFunction = setKeyUUID;
-            // var arr = myDiagram.model.nodeDataArray;
-            // for (var i = 0; i < arr.length; i++) {
-            //     var data = arr[i];
-            //     var buildUnit = data.buildUnit;
-            //     if (buildUnit) {
-            //         var sdata = myDiagram.model.findNodeDataForKey(buildUnit);
-            //         if (sdata) {
-            //             // update _supers to be an Array of references to node data
-            //             if (!data._buildUnit) {
-            //                 data._buildUnit = [sdata];
-            //             } else {
-            //                 data._buildUnit.push(sdata);
-            //             }
-            //             // update _members to be an Array of references to node data
-            //             if (!sdata._members) {
-            //                 sdata._members = [data];
-            //             } else {
-            //                 sdata._members.push(data);
-            //             }
-            //         }
-            //     }
-            // }
+            var arr = myDiagram.model.nodeDataArray;
+            for (var i = 0; i < arr.length; i++) {
+                var data = arr[i];
+                var buildUnit = data.buildUnit;
+                if (buildUnit) {
+                    var sdata = myDiagram.model.findNodeDataForKey(buildUnit);
+                    if (sdata) {
+                        // update _supers to be an Array of references to node data
+                        if (!data._buildUnit) {
+                            data._buildUnit = [sdata];
+                        } else {
+                            data._buildUnit.push(sdata);
+                        }
+                        // update _members to be an Array of references to node data
+                        if (!sdata._members) {
+                            sdata._members = [data];
+                        } else {
+                            sdata._members.push(data);
+                        }
+                    }
+                }
+            }
         };
         reader.readAsText(openFile);
         var fileName = openFile.name.substring(0,openFile.name.length-5);
