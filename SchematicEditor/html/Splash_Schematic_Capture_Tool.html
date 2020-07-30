@@ -4647,7 +4647,12 @@
                         node.findObject(MODE_AREA_NAME_ARRAY[i]).visible = true;
                     }
                     node.memberParts.each(function(node2) {
-                        if(node2.part.data.category === "modeChangeInputPort") return;
+                        if(node2.part.data.category === "modeChangeInputPort") {
+                            if(node.part.data.mode_configuration.length > 1) {
+                                node2.deletable = false;
+                            }
+                            return;   
+                        }
                         node2.part.data.mode = parsedString.nodeDataArray.find(function(nodeData) {
                             if(nodeData.key === node2.key) return nodeData;
                         }).mode
