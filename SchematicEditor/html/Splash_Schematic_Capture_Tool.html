@@ -1874,7 +1874,7 @@
                     newRow.getElementsByTagName("button")[1].addEventListener('click', deleteMode);
                 })
             })
-
+            console.log(set_event)
             // load event list
             set_event.forEach(function(event) {
                 // var option = document.createElement("option");
@@ -2049,7 +2049,7 @@
                 newRow.getElementsByTagName("input")[0].addEventListener('click', handleCheckboxChange);
                 newRow.getElementsByTagName("button")[0].addEventListener('click', openEditModeNameWindow);
                 newRow.getElementsByTagName("button")[1].addEventListener('click', deleteMode);
-                events_data.push({"name": table_event_ref.rows[i].cells[0].innerHTML, "next_mode": mode_name, "output_internal_data_items": false});
+                events_data.push({"name": table_event_ref.rows[i].cells[0].innerHTML.trim(), "next_mode": mode_name, "output_internal_data_items": false});
             }
             
             var obj = myDiagram.model.findNodeDataForKey(document.getElementById("selected_factory").value);
@@ -2090,13 +2090,14 @@
             var obj = myDiagram.model.findNodeDataForKey(document.getElementById("selected_factory").value);
             var new_data = JSON.parse(JSON.stringify(obj.mode_configuration));
             new_data.forEach(function(mode) {
-                if(mode.name !== mode_name) 
-                    return
-                mode.events.forEach(function(event) {
-                    if(event.name !== event_name)
-                        return
-                    event.next_mode = value;
+                if(mode.name === mode_name.trim()) { 
+                    mode.events.forEach(function(event) {
+                    if(event.name === event_name.trim()) {
+                        event.next_mode = value;
+                        return false;
+                    }
                 })
+                }
             })
             myDiagram.model.setDataProperty(obj, "mode_configuration", new_data)
         }
@@ -2109,13 +2110,14 @@
             var obj = myDiagram.model.findNodeDataForKey(document.getElementById("selected_factory").value);
             var new_data = JSON.parse(JSON.stringify(obj.mode_configuration));
             new_data.forEach(function(mode) {
-                if(mode.name !== mode_name) 
-                    return
-                mode.events.forEach(function(event) {
-                    if(event.name !== event_name)
-                        return
-                    event.output_internal_data_items = value;
-                })
+                if(mode.name === mode_name.trim()) {
+                    mode.events.forEach(function(event) {
+                        if(event.name === event_name) {
+                            event.output_internal_data_items = value;
+                            return false;
+                        }
+                    })
+                }
             })
             myDiagram.model.setDataProperty(obj, "mode_configuration", new_data)
         }
