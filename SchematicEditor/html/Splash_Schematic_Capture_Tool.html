@@ -230,6 +230,7 @@
                 ExternalObjectsDropped: function(e) {
                 
                     console.log("ExternalObjectsDropped()");
+                    myDiagram.clearSelection();
                     e.subject.each( function(part) 
                         {
                             externalDroppedObjectName = part.name;
@@ -657,6 +658,7 @@
                 e.diagram.commandHandler.addTopLevelParts(list, true);
                 return;
             }
+            
             var ok = (grp !== null
             ? grp.addMembers(grp.diagram.selection, true)
             : e.diagram.commandHandler.addTopLevelParts(e.diagram.selection, true));
@@ -916,10 +918,11 @@
                     collection.add(part);
                 }
              })
+
             var ok = (grp !== null
                 ?  
                     grp.addMembers(collection, true) 
-                : 
+                :   
                     e.diagram.commandHandler.addTopLevelParts(collection, true));
             if (!ok) e.diagram.currentTool.doCancel();
         }
@@ -2864,7 +2867,6 @@
             },
             mouseDragLeave: function(e, grp, next) { 
               console.log("mouseDragLeave()");
-              console.log(myDiagram.selection)
               highlightFactory(e, grp, false); 
               highlighted_factory = null;
               isIncoming_toFactory = false;              
@@ -2908,7 +2910,6 @@
             memberValidation: function(grp, node) {
               console.log("memberValidation()");
               var selectedName = node.name;
-                console.log(node.name);
               var grp_loc = new go.Point(0, 0);
               var node_loc = new go.Point(0, 0);
               var grp_height = grp.actualBounds.height;
