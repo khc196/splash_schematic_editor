@@ -1583,7 +1583,13 @@
                     while (it.next()) {
                         if(it.value.data.buildUnit)
                             continue;
-                        myDiagram_buildUnit_selectionPane.model.setParentKeyForNodeData(it.value.data, buildUnit_name);
+                        if(
+                            it.value.data.category === "sourceComponent" ||
+                            it.value.data.category === "processingComponent" ||
+                            it.value.data.category === "sinkCoponent" ||
+                            it.value.data.category === "fusionOperator"
+                        )
+                            myDiagram_buildUnit_selectionPane.model.setParentKeyForNodeData(it.value.data, buildUnit_name);
                     }
                 }
             });
@@ -3280,7 +3286,15 @@
                             });
                             var flag = false;
                             list.forEach(function(node) {
-                                if(node.data.buildUnit === "" || node.data.buildUnit === undefined) flag = true;
+                                if(
+                                    node.data.category === "sourceComponent" ||
+                                    node.data.category === "processingComponent" ||
+                                    node.data.category === "sinkCoponent" ||
+                                    node.data.category === "fusionOperator"
+                                ) {
+                                    if(node.data.buildUnit === "" || node.data.buildUnit === undefined) flag = true;
+                                }
+                                
                             })
                             return flag;
                         }
@@ -3438,6 +3452,19 @@
                                 })
                             }
                         }
+                    });
+                    myDiagram.nodes.each(function(node) {
+                        if(node.part.data.category ==="buildUnit") {
+                            var flag = false;
+                            myDiagram.nodes.each(function(node2) {
+                                if(node2.part.data.buildUnit === node.part.data.key && !node2.visible) {
+                                    flag = true;
+                                    return false;
+                                }  
+                            })
+                            node.visible = !flag;
+                            return false;
+                        }
                     })
                 }
             },
@@ -3533,6 +3560,19 @@
                             }
                         }
                     })
+                    myDiagram.nodes.each(function(node) {
+                        if(node.part.data.category ==="buildUnit") {
+                            var flag = false;
+                            myDiagram.nodes.each(function(node2) {
+                                if(node2.part.data.buildUnit === node.part.data.key && !node2.visible) {
+                                    flag = true;
+                                    return false;
+                                }  
+                            })
+                            node.visible = !flag;
+                            return false;
+                        }
+                    })
                 }
             },
             new go.Binding("alignment", "HEIGHT", function(data, node) {
@@ -3625,6 +3665,19 @@
                             }
                         }
                     })
+                    myDiagram.nodes.each(function(node) {
+                        if(node.part.data.category ==="buildUnit") {
+                            var flag = false;
+                            myDiagram.nodes.each(function(node2) {
+                                if(node2.part.data.buildUnit === node.part.data.key && !node2.visible) {
+                                    flag = true;
+                                    return false;
+                                }  
+                            })
+                            node.visible = !flag;
+                            return false;
+                        }
+                    })
                 }
             },
             new go.Binding("visible", "", function(o) {
@@ -3715,6 +3768,19 @@
                                     })
                                 })
                             }
+                        }
+                    })
+                    myDiagram.nodes.each(function(node) {
+                        if(node.part.data.category ==="buildUnit") {
+                            var flag = false;
+                            myDiagram.nodes.each(function(node2) {
+                                if(node2.part.data.buildUnit === node.part.data.key && !node2.visible) {
+                                    flag = true;
+                                    return false;
+                                }  
+                            })
+                            node.visible = !flag;
+                            return false;
                         }
                     })
                 }
