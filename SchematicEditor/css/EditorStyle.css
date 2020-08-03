@@ -493,19 +493,27 @@ splashHighlight {
 }
 
 .myInfo_modeConfiguration_mode_table_col1 {
-  width: 27%;
+  width: 25%;
   text-align: center;
 }
 .myInfo_modeConfiguration_mode_table_col2 {
-  width: 27%;
+  width: 5%;
   text-align: center;
 }
 .myInfo_modeConfiguration_mode_table_col3 {
-  width: 27%;
+  width: 25%;
   text-align: center;
 }
 .myInfo_modeConfiguration_mode_table_col4 {
+  width: 25%;
+  text-align: center;
+}
+.myInfo_modeConfiguration_mode_table_col5 {
   width: 15%;
+  text-align: center;
+}
+.myInfo_modeConfiguration_mode_table_col6 {
+  width: 5%;
   text-align: center;
 }
 #myInfo_modeConfiguration_btn_div {
@@ -517,4 +525,18 @@ splashHighlight {
 }
 #myInfo_modeConfiguration_btn_cancel {
   width: 50%;
+}
+/* Style buttons */
+.btn {
+  background-color: #f5f5f5; /* Blue background */
+  border: none; /* Remove borders */
+  color: black; /* White text */
+  padding: 5px 8px; /* Some padding */
+  font-size: 16px; /* Set a font size */
+  cursor: pointer; /* Mouse pointer on hover */
+}
+
+/* Darker background on mouse-over */
+.btn:hover {
+  background-color: #f5f5f5;
 }

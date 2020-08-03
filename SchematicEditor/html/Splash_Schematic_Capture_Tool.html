@@ -28,6 +28,7 @@
 
   <link rel="stylesheet" href="../css/EditorStyle.css" type="text/css">
   <link rel="stylesheet" href="../libraries/Gojs/assets/css/jquery-ui.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
   <script src="../libraries/Gojs/assets/js/jquery.min.js"></script>
   <script src="../libraries/Gojs/assets/js/jquery-ui.min.js"></script>
   
@@ -159,6 +160,8 @@
     var factory_mode_select_map = new Map();
     var set_mode;
     var set_event;
+    var prev_mode_name_in_config;
+    var current_edit_elem;
     function init() {
 
         var externalDroppedObjectName = "NONE";
@@ -1831,22 +1834,40 @@
                     obj.part.data.mode_configuration.forEach(function(mode2) {
                         option_text += "<option>{0}</option>".format(mode2.name);
                     });
+                    
                     var content = "<tr>\
-                    <td class=\"myInfo_modeConfiguration_mode_table_col1\">{0}</td>\
-                    <td class=\"myInfo_modeConfiguration_mode_table_col2\">{1}</td>\
-                    <td class=\"myInfo_modeConfiguration_mode_table_col3\">\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col1\">\
+                    {0}\
+                    </td>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col2\">\
+                    <button class=\"btn\"><i class=\"fa fa-pencil\"></i></button>\
+                    </td>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col3\">{1}</td>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col4\">\
                         <select name=\"myInfo_modeConfiguration_mode_select_event\">\
                         {2}\
                         </select>\
                     </td>\
-                    <td class=\"myInfo_modeConfiguration_mode_table_col4\">\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col5\">\
                         <input type=\"checkbox\" name=\"output\" {3}/>\
                     </td>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col6\">\
+                        <button class=\"btn\"><i class=\"fa fa-trash\"></i></button>\
+                    </td>\
                     </tr>".format(mode.name, event.name, option_text, event.output_internal_data_items ? "checked" : "" );
+                    
                     var newRow = table_mode_ref.insertRow(table_mode_ref.rows.length);
                     newRow.innerHTML = content;
+                    var select_tag = newRow.cells[3].getElementsByTagName('select')[0]
+                    for(var j = 0; j < select_tag.options.length; j++) {
+                        if(select_tag.options[j].text === event.next_mode) {
+                            select_tag.options[j].selected = true;
+                        }
+                    }
                     newRow.getElementsByTagName("select")[0].addEventListener('change', handleSelectChange);
                     newRow.getElementsByTagName("input")[0].addEventListener('click', handleCheckboxChange);
+                    newRow.getElementsByTagName("button")[0].addEventListener('click', openEditModeNameWindow);
+                    newRow.getElementsByTagName("button")[1].addEventListener('click', deleteMode);
                 })
             })
 
@@ -1902,21 +1923,31 @@
                         }
                     });
                     var content = "<tr>\
-                        <td class=\"myInfo_modeConfiguration_mode_table_col1\">{0}</td>\
-                        <td class=\"myInfo_modeConfiguration_mode_table_col2\">{1}</td>\
-                        <td class=\"myInfo_modeConfiguration_mode_table_col3\">\
+                        <td class=\"myInfo_modeConfiguration_mode_table_col1\">\
+                        {0}\
+                        </td>\
+                        <td class=\"myInfo_modeConfiguration_mode_table_col2\">\
+                        <button class=\"btn\"><i class=\"fa fa-pencil\"></i></button>\
+                        </td>\
+                        <td class=\"myInfo_modeConfiguration_mode_table_col3\">{1}</td>\
+                        <td class=\"myInfo_modeConfiguration_mode_table_col4\">\
                             <select name=\"myInfo_modeConfiguration_mode_select_event\">\
                             {2}\
                             </select>\
                         </td>\
-                        <td class=\"myInfo_modeConfiguration_mode_table_col4\">\
+                        <td class=\"myInfo_modeConfiguration_mode_table_col5\">\
                             <input type=\"checkbox\" name=\"output\" {3}/>\
+                        </td>\
+                        <td class=\"myInfo_modeConfiguration_mode_table_col6\">\
+                            <button class=\"btn\"><i class=\"fa fa-trash\"></i></button>\
                         </td>\
                         </tr>".format(mode.name, event.name, option_text, event.output_internal_data_items ? "checked" : "");
                     var newRow = table_mode_ref.insertRow(table_mode_ref.rows.length);
                     newRow.innerHTML = content;
                     newRow.getElementsByTagName("select")[0].addEventListener('change', handleSelectChange);
                     newRow.getElementsByTagName("input")[0].addEventListener('click', handleCheckboxChange);
+                    newRow.getElementsByTagName("button")[0].addEventListener('click', openEditModeNameWindow);
+                    newRow.getElementsByTagName("button")[1].addEventListener('click', deleteMode);
                 })
             })
         }
@@ -1945,21 +1976,31 @@
             var events_data = [];
             for(var i = 0; i < options.length; i++) {
                 var content = "<tr>\
-                    <td class=\"myInfo_modeConfiguration_mode_table_col1\">{0}</td>\
-                    <td class=\"myInfo_modeConfiguration_mode_table_col2\">{1}</td>\
-                    <td class=\"myInfo_modeConfiguration_mode_table_col3\">\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col1\">\
+                    {0}\
+                    </td>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col2\">\
+                    <button class=\"btn\"><i class=\"fa fa-pencil\"></i></button>\
+                    </td>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col3\">{1}</td>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col4\">\
                         <select name=\"myInfo_modeConfiguration_mode_select_event\">\
                         {2}\
                         </select>\
                     </td>\
-                    <td class=\"myInfo_modeConfiguration_mode_table_col4\">\
-                        <input type=\"checkbox\" name=\"output\" {3}/>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col5\">\
+                        <input type=\"checkbox\" name=\"output\"/>\
+                    </td>\
+                    <td class=\"myInfo_modeConfiguration_mode_table_col6\">\
+                        <button class=\"btn\"><i class=\"fa fa-trash\"></i></button>\
                     </td>\
                     </tr>".format(mode_name, options[i].text, option_text);
                 var newRow = table_mode_ref.insertRow(table_mode_ref.rows.length);
                 newRow.innerHTML = content;
                 newRow.getElementsByTagName("select")[0].addEventListener('change', handleSelectChange);
                 newRow.getElementsByTagName("input")[0].addEventListener('click', handleCheckboxChange);
+                newRow.getElementsByTagName("button")[0].addEventListener('click', openEditModeNameWindow);
+                newRow.getElementsByTagName("button")[1].addEventListener('click', deleteMode);
                 events_data.push({"name": options[i].text, "next_mode": mode_name, "output_internal_data_items": false});
             }
             
@@ -1972,21 +2013,23 @@
         function sync_mode_select(option_text) {
             var table_mode = document.getElementById("myInfo_modeConfiguration_mode_table").getElementsByTagName('tbody')[0];
             for (var i = 0, row; row = table_mode.rows[i]; i++) {
-                var select_tag = row.cells[2].getElementsByTagName('select')[0]
+                var select_tag = row.cells[3].getElementsByTagName('select')[0]
                 var selected = select_tag.options[select_tag.selectedIndex].text;
-                row.cells[2].innerHTML = "<td class=\"myInfo_modeConfiguration_mode_table_col3\">\
+                row.cells[3].innerHTML = "<td class=\"myInfo_modeConfiguration_mode_table_col3\">\
                         <select name=\"myInfo_modeConfiguration_mode_select_event\">\
                         {0}\
                         </select>\
                     </td>".format(option_text)
-                select_tag = row.cells[2].getElementsByTagName('select')[0]
+                select_tag = row.cells[3].getElementsByTagName('select')[0]
                 for(var j = 0; j < select_tag.options.length; j++) {
                     if(select_tag.options[j].text === selected) {
                         select_tag.options[j].selected = true;
                     }
                 }
-                row.cells[2].getElementsByTagName("select")[0].addEventListener('change', handleSelectChange);
-                row.cells[3].getElementsByTagName("input")[0].addEventListener('click', handleCheckboxChange);
+                row.cells[3].getElementsByTagName("select")[0].addEventListener('change', handleSelectChange);
+                row.cells[4].getElementsByTagName("input")[0].addEventListener('click', handleCheckboxChange);
+                row.getElementsByTagName("button")[0].addEventListener('click', openEditModeNameWindow);
+                row.getElementsByTagName("button")[1].addEventListener('click', deleteMode);
             }
            
         }
@@ -1995,7 +2038,7 @@
             var value = selectElement.value;
             var parentElement = selectElement.parentElement.parentElement;
             var mode_name = parentElement.cells[0].innerHTML;
-            var event_name = parentElement.cells[1].innerHTML;
+            var event_name = parentElement.cells[2].innerHTML;
             var obj = myDiagram.model.findNodeDataForKey(document.getElementById("selected_factory").value);
             var new_data = JSON.parse(JSON.stringify(obj.mode_configuration));
             new_data.forEach(function(mode) {
@@ -2014,7 +2057,7 @@
             var value = selectElement.value;
             var parentElement = selectElement.parentElement.parentElement;
             var mode_name = parentElement.cells[0].innerHTML;
-            var event_name = parentElement.cells[1].innerHTML;
+            var event_name = parentElement.cells[2].innerHTML;
             var obj = myDiagram.model.findNodeDataForKey(document.getElementById("selected_factory").value);
             var new_data = JSON.parse(JSON.stringify(obj.mode_configuration));
             new_data.forEach(function(mode) {
@@ -2027,6 +2070,83 @@
                 })
             })
             myDiagram.model.setDataProperty(obj, "mode_configuration", new_data)
+        }
+        function openEditModeNameWindow(event) {
+            var new_name = "";
+            var target = event.target.parentElement.parentElement;
+            var old_name = "";
+            
+            if(target.tagName === "TD") 
+                target = target.parentElement;
+            old_name = target.cells[0].innerHTML.trim();
+            var factory = document.getElementById("selected_factory").value;
+            var factory_nodedata = myDiagram.findNodeForKey(factory);
+            
+            while(true) {
+                new_name = prompt("New mode name is", old_name);
+                var flag = false;
+                if(new_name === null) {
+                    return false;
+                }
+                if(new_name === "") {
+                    alert("Empty name!")
+                    continue;
+                }
+                else if(new_name === old_name) {
+                    return false;
+                }
+                factory_nodedata.part.data.mode_configuration.forEach(function(mode) {
+                    if(mode.name === new_name) {
+                        flag = true;
+                        return false;
+                    }
+                })
+                if(flag)
+                    alert("Already Exists");
+                else { 
+                    var new_data = JSON.parse(JSON.stringify(factory_nodedata.part.data.mode_configuration));
+                    new_data.forEach(function(mode) {
+                        if(mode.name === old_name) {
+                            mode.name = new_name;
+                        }
+                        mode.events.forEach(function(event) {
+                            if(event.next_mode === old_name) {
+                                event.next_mode = new_name;
+                            }
+                        })
+                    })
+                    myDiagram.model.setDataProperty(factory_nodedata.part.data, "mode_configuration", new_data);
+                    loadModeInfo(factory_nodedata);
+                    break;
+                }
+            }
+
+        }
+        function deleteMode(event) {
+            var result = confirm("Delete this mode?");
+            
+            if(result) {
+                var target = event.target.parentElement.parentElement;
+                if(target.tagName === "TD") 
+                    target = target.parentElement;
+                mode_name = target.cells[0].innerHTML.trim();
+                var factory = document.getElementById("selected_factory").value;
+                var factory_nodedata = myDiagram.findNodeForKey(factory);
+                var new_data = JSON.parse(JSON.stringify(factory_nodedata.part.data.mode_configuration));
+                var del_index = -1;
+
+                new_data = new_data.filter(function(mode) {
+                    return mode.name !== mode_name
+                })
+
+                new_data.forEach(function(mode) {
+                    mode.events = mode.events.filter(function(event) {
+                        return event.next_mode !== mode_name;
+                    })
+                })
+                myDiagram.model.setDataProperty(factory_nodedata.part.data, "mode_configuration", new_data);
+                loadModeInfo(factory_nodedata);
+            }
         }
         var current_processingComponentKey;
         function checkFusionRule(data) {
@@ -6078,9 +6198,11 @@ function isNotConfiguringFusionRule() {
                             <thead >
                                 <tr>
                                     <th class="myInfo_modeConfiguration_mode_table_header myInfo_modeConfiguration_mode_table_col1">Mode</th>
-                                    <th class="myInfo_modeConfiguration_mode_table_header myInfo_modeConfiguration_mode_table_col2">Event</th>
-                                    <th class="myInfo_modeConfiguration_mode_table_header myInfo_modeConfiguration_mode_table_col3">Next Mode</th>
-                                    <th class="myInfo_modeConfiguration_mode_table_header myInfo_modeConfiguration_mode_table_col4">Output Internal Data Items</th>
+                                    <th class="myInfo_modeConfiguration_mode_table_header myInfo_modeConfiguration_mode_table_col2"></th>
+                                    <th class="myInfo_modeConfiguration_mode_table_header myInfo_modeConfiguration_mode_table_col3">Event</th>
+                                    <th class="myInfo_modeConfiguration_mode_table_header myInfo_modeConfiguration_mode_table_col4">Next Mode</th>
+                                    <th class="myInfo_modeConfiguration_mode_table_header myInfo_modeConfiguration_mode_table_col5">Output Internal Data Items</th>
+                                    <th class="myInfo_modeConfiguration_mode_table_header myInfo_modeConfiguration_mode_table_col6"></th>
                                 </tr>
                             </thead>
                             <tbody>
