@@ -230,7 +230,7 @@
                 ExternalObjectsDropped: function(e) {
                 
                     console.log("ExternalObjectsDropped()");
-                    myDiagram.clearSelection();
+                    
                     e.subject.each( function(part) 
                         {
                             externalDroppedObjectName = part.name;
@@ -244,6 +244,7 @@
                             if(part.name === "FACTORY") {
                                 factory_mode_select_map.set(part.key, 0);
                             }
+                             palette.clearSelection();
                             //console.log("BuildUnit is null string? "+ (part.data.BuildUnit === null) ? "true" : "false");
                         });
                 },
@@ -431,17 +432,17 @@
             var memeber_port;
 
             if(part.name == "SOURCE") {
-            it_memberParts = part.memberParts;
-            memeber_port = it_memberParts.first()
+                it_memberParts = part.memberParts;
+                memeber_port = it_memberParts.first()
 
-            memeber_port.location = new go.Point(part.location.x+30, part.location.y-part.actualBounds.height/2+10);
-            console.log(memeber_port.location);
+                memeber_port.location = new go.Point(part.location.x+30, part.location.y-part.actualBounds.height/2+10);
+                console.log(memeber_port.location);
 
             } else if(part.name == "SINK") {
-            it_memberParts = part.memberParts;
-            memeber_port = it_memberParts.first()
+                it_memberParts = part.memberParts;
+                memeber_port = it_memberParts.first()
 
-            memeber_port.location = new go.Point(part.location.x-50, part.location.y-part.actualBounds.height/2+10);
+                memeber_port.location = new go.Point(part.location.x-50, part.location.y-part.actualBounds.height/2+10);
 
             } else if(part.name == "FUSION") {
             /*
@@ -567,6 +568,7 @@
         }    
 
         function addDefaultPort(part) {
+            console.log("addDefaultPort()");
             var defaultPort;
             if(part.name === "SOURCE") {
                 defaultPort = {
@@ -707,7 +709,12 @@
         }
       });
       
-      palette = new go.Palette("palette");  // create a new Palette in the HTML DIV element "palette"
+      palette = $(go.Palette, "palette", 
+        {
+            "ChangedSelection": function(e) {
+                myDiagram.clearSelection();
+            }
+        });  
       // creates relinkable Links that will avoid crossing Nodes when possible and will jump over other Links in their paths
       myDiagram.linkTemplate = 
         $(go.Link,
