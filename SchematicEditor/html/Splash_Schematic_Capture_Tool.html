@@ -4865,12 +4865,16 @@
         return (isStreamPort() || isChannel(part));
       }
 
-      function hasFreshness() {
-        return isSourceComponent();
+      function hasFreshness(obj) {
+        if(obj.part.data.category === "sourceComponent")
+            return true;
+        return false;
       }
       
-      function hasRate() {
-        return (isStreamOutputPort()||isStreamDelegationPort());
+      function hasRate(obj) {
+        if(obj.part.data.PORT_TYPE === "STREAM_OUTPUT_PORT")
+            return true;
+        return false;
       }
 
       function canResize() {
