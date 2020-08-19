@@ -3438,6 +3438,8 @@
                                     myDiagram.links.each(function(link) {
                                         if(link.part.data.to === member.key)
                                             link.visible = false;
+                                        else if(link.part.data.from === member.key)
+                                            link.visible = false;
                                     })
                                 })
                             }
@@ -3447,6 +3449,8 @@
                                     member.visible = true;    
                                     myDiagram.links.each(function(link) {
                                         if(link.part.data.to === member.key)
+                                            link.visible = true;
+                                        else if(link.part.data.from === member.key)
                                             link.visible = true;
                                     })
                                 })
