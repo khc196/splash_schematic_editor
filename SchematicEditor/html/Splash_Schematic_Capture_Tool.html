@@ -1836,12 +1836,12 @@
             table_mode_ref.innerHTML = ""
             set_mode = new Set();
             set_event = new Set();
-            obj.part.data.mode_configuration.forEach(function(mode) {
+            obj.part.data.mode_configuration.mode_list.forEach(function(mode) {
                 set_mode.add(mode.name);
                 mode.events.forEach(function(event) {
                     set_event.add(event.name)
                     var option_text = "";
-                    obj.part.data.mode_configuration.forEach(function(mode2) {
+                    obj.part.data.mode_configuration.mode_list.forEach(function(mode2) {
                         option_text += "<option>{0}</option>".format(mode2.name);
                     });
                     
@@ -1907,13 +1907,21 @@
         function confirmModeConfiguration() {     
             var factory = document.getElementById("selected_factory").value;
             var factory_nodedata = myDiagram.model.findNodeDataForKey(factory);
-            if(factory_nodedata.mode_configuration.length === 0) {
+            
+            
+            
+            if(factory_nodedata.mode_configuration.mode_list.length === 0) {
                 myDiagram.nodes.each(function(node){ 
                     console.log(node.part.data.category)
                     if(node.part.data.group === factory && node.part.data.category === "modeChangeInputPort") {
                         myDiagram.remove(node);
                     } 
                 })
+            }
+            else {
+                var new_data = JSON.parse(JSON.stringify(factory_nodedata.mode_configuration));
+                new_data.initial_mode = new_data.mode_list[0].name
+                myDiagram.model.setDataProperty(factory_nodedata, "mode_configuration", new_data)
             }
             toggleModeConfigurationWindow();
         }
@@ -1957,16 +1965,16 @@
             })
             var obj = myDiagram.model.findNodeDataForKey(document.getElementById("selected_factory").value);
             var new_data = JSON.parse(JSON.stringify(obj.mode_configuration));
-            new_data.forEach(function(mode) {
+            new_data.mode_list.forEach(function(mode) {
                 mode.events.push({"name": event_name, "next_mode": mode.name, "output_internal_data_items": false});
             })
             myDiagram.model.setDataProperty(obj, "mode_configuration", new_data)
             table_mode_ref.innerHTML = ""
-            obj.mode_configuration.forEach(function(mode) {
+            obj.mode_configuration.mode_list.forEach(function(mode) {
                 mode.events.forEach(function(event) {
                     set_event.add(event.name)
                     var option_text = "";
-                    obj.mode_configuration.forEach(function(mode2) {
+                    obj.mode_configuration.mode_list.forEach(function(mode2) {
                         if(event.next_mode === mode2.name) {
                             option_text += "<option selected=\"selected\">{0}</option>".format(mode2.name);
                         }
@@ -2060,7 +2068,7 @@
             
             var obj = myDiagram.model.findNodeDataForKey(document.getElementById("selected_factory").value);
             var new_data = JSON.parse(JSON.stringify(obj.mode_configuration));
-            new_data.push({"name": mode_name, "events": events_data});
+            new_data.mode_list.push({"name": mode_name, "events": events_data});
             myDiagram.model.setDataProperty(obj, "mode_configuration", new_data)
         }
 
@@ -2095,7 +2103,7 @@
             var event_name = parentElement.cells[2].innerHTML;
             var obj = myDiagram.model.findNodeDataForKey(document.getElementById("selected_factory").value);
             var new_data = JSON.parse(JSON.stringify(obj.mode_configuration));
-            new_data.forEach(function(mode) {
+            new_data.mode_list.forEach(function(mode) {
                 if(mode.name === mode_name.trim()) { 
                     mode.events.forEach(function(event) {
                     if(event.name === event_name.trim()) {
@@ -2109,16 +2117,17 @@
         }
         function handleCheckboxChange(event) {
             var selectElement = event.target;
-            var value = selectElement.value;
+            var value = selectElement.checked;
             var parentElement = selectElement.parentElement.parentElement;
             var mode_name = parentElement.cells[0].innerHTML;
             var event_name = parentElement.cells[2].innerHTML;
             var obj = myDiagram.model.findNodeDataForKey(document.getElementById("selected_factory").value);
             var new_data = JSON.parse(JSON.stringify(obj.mode_configuration));
-            new_data.forEach(function(mode) {
+            new_data.mode_list.forEach(function(mode) {
                 if(mode.name === mode_name.trim()) {
                     mode.events.forEach(function(event) {
                         if(event.name === event_name) {
+                            console.log(value)
                             event.output_internal_data_items = value;
                             return false;
                         }
@@ -2151,7 +2160,7 @@
                 else if(new_name === old_name) {
                     return false;
                 }
-                factory_nodedata.part.data.mode_configuration.forEach(function(mode) {
+                factory_nodedata.part.data.mode_configuration.mode_list.forEach(function(mode) {
                     if(mode.name === new_name) {
                         flag = true;
                         return false;
@@ -2161,7 +2170,7 @@
                     alert("Already Exists");
                 else { 
                     var new_data = JSON.parse(JSON.stringify(factory_nodedata.part.data.mode_configuration));
-                    new_data.forEach(function(mode) {
+                    new_data.mode_list.forEach(function(mode) {
                         if(mode.name === old_name) {
                             mode.name = new_name;
                         }
@@ -2172,6 +2181,13 @@
                         })
                     })
                     myDiagram.model.setDataProperty(factory_nodedata.part.data, "mode_configuration", new_data);
+                    myDiagram.nodes.each(function(node) {
+                        if(node.part.data.group === factory) {
+                            if(node.part.data.mode === old_name) {
+                                myDiagram.model.setDataProperty(node.part.data, "mode", new_name)
+                            }
+                        }
+                    })
                     loadModeInfo(factory_nodedata);
                     break;
                 }
@@ -2187,15 +2203,29 @@
                     target = target.parentElement;
                 mode_name = target.cells[0].innerHTML.trim();
                 var factory = document.getElementById("selected_factory").value;
+
+                var flag = false;
+                myDiagram.nodes.each(function(node) {
+                        if(node.part.data.group === factory) {
+                            if(node.part.data.mode === mode_name) {
+                                flag = true;
+                                return false;
+                            }
+                        }
+                    })
+                if(flag) {
+                    alert("You cannot delete this mode");
+                    return;
+                }
                 var factory_nodedata = myDiagram.findNodeForKey(factory);
                 var new_data = JSON.parse(JSON.stringify(factory_nodedata.part.data.mode_configuration));
                 var del_index = -1;
 
-                new_data = new_data.filter(function(mode) {
+                new_data.mode_list = new_data.mode_list.filter(function(mode) {
                     return mode.name !== mode_name
                 })
 
-                new_data.forEach(function(mode) {
+                new_data.mode_list.forEach(function(mode) {
                     mode.events = mode.events.filter(function(event) {
                         return event.next_mode !== mode_name;
                     })
@@ -2228,7 +2258,7 @@
                 else if(new_name === old_name) {
                     return false;
                 }
-                factory_nodedata.part.data.mode_configuration.forEach(function(mode) {
+                factory_nodedata.part.data.mode_configuration.mode_list.forEach(function(mode) {
                     mode.events.forEach(function(evt) {
                         if(evt.name === new_name) {
                             flag = true;
@@ -2239,7 +2269,7 @@
                     alert("Already Exists");
                 else { 
                     var new_data = JSON.parse(JSON.stringify(factory_nodedata.part.data.mode_configuration));
-                    new_data.forEach(function(mode) {
+                    new_data.mode_list.forEach(function(mode) {
                         mode.events.forEach(function(event) {
                             if(event.name === old_name) {
                                 event.name = new_name;
@@ -2265,12 +2295,12 @@
                 var factory_nodedata = myDiagram.findNodeForKey(factory);
                 var new_data = JSON.parse(JSON.stringify(factory_nodedata.part.data.mode_configuration));
                 
-                new_data.forEach(function(mode) {
+                new_data.mode_list.forEach(function(mode) {
                     mode.events = mode.events.filter(function(event) {
                         return event.name !== event_name;
                     })
                 })
-                new_data = new_data.filter(function(mode) {
+                new_data.mode_list = new_data.mode_list.filter(function(mode) {
                     return mode.events.length > 0;
                 })
                 myDiagram.model.setDataProperty(factory_nodedata.part.data, "mode_configuration", new_data);
@@ -3137,12 +3167,12 @@
                 }
                 if(node.category === "modeChangeInputPort") {
                     grp.findObject("MODE_A").visible = true;
-                    var data = [{"name": "Mode A", "events": [{"name": "event_1", "next_mode": "Mode A", "output_internal_data_items": false}]}]
+                    var data = {"initial_mode": "Mode A", "mode_list":[{"name": "Mode A", "events": [{"name": "event_1", "next_mode": "Mode A", "output_internal_data_items": false}]}]}
                     myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(grp.key), "mode_configuration", data)
                     myDiagram.nodes.each(function(node2) {
                         if(node2.part.data.group === grp.key) {
-                            if(grp.part.data.mode_configuration[factory_mode_select_map.get(grp.key)])
-                                myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(node2.key), "mode", grp.part.data.mode_configuration[factory_mode_select_map.get(grp.key)].name)
+                            if(grp.part.data.mode_configuration.mode_list[factory_mode_select_map.get(grp.key)])
+                                myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(node2.key), "mode", grp.part.data.mode_configuration.mode_list[factory_mode_select_map.get(grp.key)].name)
                         }
                     })
                     return;
@@ -3159,8 +3189,8 @@
                             }
                         }
                     })
-                    if(grp.part.data.mode_configuration[factory_mode_select_map.get(grp.key)])
-                        myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(node.key), "mode", grp.part.data.mode_configuration[factory_mode_select_map.get(grp.key)].name)
+                    if(grp.part.data.mode_configuration.mode_list[factory_mode_select_map.get(grp.key)])
+                        myDiagram.model.setDataProperty(myDiagram.model.findNodeDataForKey(node.key), "mode", grp.part.data.mode_configuration.mode_list[factory_mode_select_map.get(grp.key)].name)
                 }
             },
 
@@ -3431,7 +3461,7 @@
                     myDiagram.nodes.each(function(node) {
                         if(node.part.data.category === "modeChangeInputPort") return;
                         if(node.part.data.group === obj.part.data.key) {
-                            if(node.part.data.mode !== obj.part.data.mode_configuration[0].name) {
+                            if(node.part.data.mode !== obj.part.data.mode_configuration.mode_list[0].name) {
                                 node.visible = false;
                                 node.part.memberParts.each(function(member) {
                                     member.visible = false;    
@@ -3476,7 +3506,7 @@
                 if(!o.mode_configuration) {
                     return false;
                 }
-                if(o.mode_configuration[0]) 
+                if(o.mode_configuration.mode_list[0]) 
                     return true;
                 return false;
             }),
@@ -3506,7 +3536,7 @@
                     return data * 0.2 - 3;
                 }),
                 new go.Binding("text", "mode_configuration", function(data, node) {
-                    return data[0].name;
+                    return data.mode_list[0].name;
                 }),
                 new go.Binding("stroke", "", function(data, node) {
                     var value = factory_mode_select_map.get(data.key);
@@ -3542,12 +3572,14 @@
                     myDiagram.nodes.each(function(node) {
                         if(node.part.data.category === "modeChangeInputPort") return;
                         if(node.part.data.group === obj.part.data.key) {
-                            if(node.part.data.mode !== obj.part.data.mode_configuration[1].name) {
+                            if(node.part.data.mode !== obj.part.data.mode_configuration.mode_list[1].name) {
                                 node.visible = false;
                                 node.part.memberParts.each(function(member) {
                                     member.visible = false;    
                                     myDiagram.links.each(function(link) {
                                         if(link.part.data.to === member.key)
+                                            link.visible = false;
+                                        else if(link.part.data.from === member.key)
                                             link.visible = false;
                                     })
                                 })
@@ -3558,6 +3590,8 @@
                                     member.visible = true;    
                                     myDiagram.links.each(function(link) {
                                         if(link.part.data.to === member.key)
+                                            link.visible = true;
+                                        else if(link.part.data.from === member.key)
                                             link.visible = true;
                                     })
                                 })
@@ -3587,7 +3621,7 @@
                 if(!o.mode_configuration) {
                     return false;
                 }
-                if(o.mode_configuration[1]) 
+                if(o.mode_configuration.mode_list[1]) 
                     return true;
                 return false;
             }),
@@ -3611,7 +3645,7 @@
                     return data * 0.2 - 3;
                 }),
                 new go.Binding("text", "mode_configuration", function(data, node) {
-                    return data[1].name;
+                    return data.mode_list[1].name;
                 }),
                 new go.Binding("stroke", "", function(data, node) {
                     var value = factory_mode_select_map.get(data.key);
@@ -3654,6 +3688,8 @@
                                     myDiagram.links.each(function(link) {
                                         if(link.part.data.to === member.key)
                                             link.visible = false;
+                                        else if(link.part.data.from === member.key)
+                                            link.visible = false;
                                     })
                                 })
                             }
@@ -3663,6 +3699,8 @@
                                     member.visible = true;    
                                     myDiagram.links.each(function(link) {
                                         if(link.part.data.to === member.key)
+                                            link.visible = true;
+                                        else if(link.part.data.from === member.key)
                                             link.visible = true;
                                     })
                                 })
@@ -3716,7 +3754,7 @@
                     return data * 0.2 - 3;
                 }),
                 new go.Binding("text", "mode_configuration", function(data, node) {
-                    return data[2].name;
+                    return data.mode_list[2].name;
                 }),
                 new go.Binding("stroke", "", function(data, node) {
                     var value = factory_mode_select_map.get(data.key);
@@ -3759,6 +3797,8 @@
                                     myDiagram.links.each(function(link) {
                                         if(link.part.data.to === member.key)
                                             link.visible = false;
+                                        else if(link.part.data.from === member.key)
+                                            link.visible = false;
                                     })
                                 })
                             }
@@ -3768,6 +3808,8 @@
                                     member.visible = true;    
                                     myDiagram.links.each(function(link) {
                                         if(link.part.data.to === member.key)
+                                            link.visible = true;
+                                        else if(link.part.data.from === member.key)
                                             link.visible = true;
                                     })
                                 })
@@ -3821,7 +3863,7 @@
                     return data * 0.2 - 3;
                 }),
                 new go.Binding("text", "mode_configuration", function(data, node) {
-                    return data[3].name;
+                    return data.mode_list[3].name;
                 }),
                 new go.Binding("stroke", "", function(data, node) {
                     var value = factory_mode_select_map.get(data.key);
@@ -4969,12 +5011,12 @@
                     node.part.data.mode_configuration = parsedData.mode_configuration;
                     factory_mode_select_map.set(node.part.data.key, 0);
                     var MODE_AREA_NAME_ARRAY = ["MODE_A", "MODE_B", "MODE_C", "MODE_D"];
-                    for(var i = 0; i < node.part.data.mode_configuration.length; i++) {
+                    for(var i = 0; i < node.part.data.mode_configuration.mode_list.length; i++) {
                         node.findObject(MODE_AREA_NAME_ARRAY[i]).visible = true;
                     }
                     node.memberParts.each(function(node2) {
                         if(node2.part.data.category === "modeChangeInputPort") {
-                            if(node.part.data.mode_configuration.length > 1) {
+                            if(node.part.data.mode_configuration.mode_list.length > 1) {
                                 node2.deletable = false;
                             }
                             return;   
@@ -4982,7 +5024,7 @@
                         node2.part.data.mode = parsedString.nodeDataArray.find(function(nodeData) {
                             if(nodeData.key === node2.key) return nodeData;
                         }).mode
-                        if(node2.part.data.mode !== node.part.data.mode_configuration[0].name) {
+                        if(node2.part.data.mode !== node.part.data.mode_configuration.mode_list[0].name) {
                             node2.visible = false;
                             node2.part.memberParts.each(function(member) {
                                 member.visible = false;    
