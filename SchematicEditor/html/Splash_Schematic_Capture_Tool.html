@@ -95,10 +95,10 @@
                 }
                 supers.remove(ready);
                 var b = this.diagram.computePartsBounds(membersOf(ready, this.diagram));
-                ready.location = b.position;
+                ready.location = new go.Point(b.position.x, b.position.y - 25);
                 var body = ready.findObject("BODY");
                 if (body) { 
-                    body.desiredSize = b.size;
+                    body.desiredSize = new go.Size(b.size.width, b.size.height + 25);
                 }
             }
             this.diagram.commitTransaction("Custom Layout");
@@ -327,7 +327,6 @@
                     var selected = e.subject.part;
                     externalDroppedObjectName = "NONE";
                     internalSelectedObjectName = selected.name;
-                    console.log(selected.key);
                     //setDefaultProperty(selected);
 
                     updateCurrentObject(selected);
@@ -433,13 +432,13 @@
 
             var it_memberParts;
             var memeber_port;
-
+            console.log(part.name)
             if(part.name == "SOURCE") {
                 it_memberParts = part.memberParts;
                 memeber_port = it_memberParts.first()
 
-                memeber_port.location = new go.Point(part.location.x+30, part.location.y-part.actualBounds.height/2+10);
-                console.log(memeber_port.location);
+                memeber_port.location = new go.Point(part.location.x+30, part.location.y-part.actualBounds.height/2);
+                
 
             } else if(part.name == "SINK") {
                 it_memberParts = part.memberParts;
@@ -702,7 +701,6 @@
       myDiagram.toolManager.mouseMoveTools.insertAt(0, new PortShiftingTool());
       // when the document is modified, add a "*" to the title and enable the "Save" button
       myDiagram.addDiagramListener("Modified", function(e) {
-          console.log("DiagramListener");
         var currentFile = document.getElementById("currentFile");
         var idx = currentFile.textContent.indexOf("*");
         if (e.diagram.isModified) {
@@ -722,7 +720,8 @@
       myDiagram.linkTemplate = 
         $(go.Link,
           {
-            routing: go.Link.AvoidsNodes,
+            // routing: go.Link.AvoidsNodes,
+            routing: go.Link.Orthogonal,
             curve: go.Link.JumpOver,
             corner: 0,
             relinkableFrom: true, relinkableTo: true,
@@ -805,14 +804,14 @@
             }
           } else if (node.name === "SOURCE" || node.name === "SINK") {
             if(grp) {
-              node_y = grp_y - grp_height/2 + 10;
+              node_y = grp_y - grp_height/2;
             }
           } else if(node.name === "MODECHANGE_INPUT_PORT"
                   || node.name === "MODECHANGE_DELEGATION_INPUT_PORT") {
             if(grp) {
                 if(grp.findObject("MODE_A").visible) {
                     node_x = grp_x - grp_width/2 + 10;
-                    node_y = grp_y - grp_height/2 + 10;
+                    node_y = grp_y - grp_height/2;
                 }
                 else {
                     node_x = grp_x - grp_width/2 + 10;
@@ -1150,7 +1149,7 @@
           $(go.TextBlock,
             {
               editable: true,
-              alignment: new go.Spot(1.0, 0), alignmentFocus: go.Spot.TopLeft,
+              alignment: new go.Spot(1.0, -0.5), alignmentFocus: go.Spot.TopLeft,
               textAlign: "center",
               maxLines: 1,
               textValidation: function okName(textblock, oldstr, newstr) {
@@ -2649,7 +2648,6 @@
               },                          
 
               memberAdded: function(grp, node) {
-                var selectedName = node.name;
                 grp.data.haveOutputPort = true;
               },
               memberRemoved: function(grp, node) {
@@ -2682,13 +2680,11 @@
                   if(isIncoming_toSourceComponent) {
                     grp.findObject("AREA_STREAM_OUTPUT_PORT").fill = "blue";
                     posX_atSourceComponent = grp_loc.x + grp_width/2 - 10;
-                    posY_atSourceComponent = grp_loc.y - grp_height/2 + 10;                    
+                    posY_atSourceComponent = grp_loc.y - grp_height/2;                    
                     return true; 
                   } else {
                     update_portType(node, "STREAM_OUTPUT_PORT");
                     node.position = new go.Point(posX_atSourceComponent, posY_atSourceComponent);
-                    //addLog("add new stream port!");
-
                     return true;
                   }
                 } else { 
@@ -2810,7 +2806,7 @@
                   if(isIncoming_toSinkComponent) {
                     grp.findObject("AREA_STREAM_INPUT_PORT").fill = "green";
                     posX_atSinkComponent = grp_loc.x - grp_width/2 - 10;
-                    posY_atSinkComponent = grp_loc.y - grp_height/2 + 10;           
+                    posY_atSinkComponent = grp_loc.y - grp_height/2;           
                     return true; 
                   } else {
                     update_portType(node, "STREAM_INPUT_PORT");
@@ -3163,7 +3159,6 @@
                 console.log("memberAdded");
             	if(node.name === "FACTORY") {
                     grp.zOrder = node.zOrder-1;
-                    console.log("yes factory");
                 }
                 if(node.category === "modeChangeInputPort") {
                     grp.findObject("MODE_A").visible = true;
@@ -5005,7 +5000,17 @@
                 var parsedData = parsedString.nodeDataArray.find(function(nodeData) {
                         if(nodeData.key === node.key) return nodeData;
                     });
-                
+                if(node.part.data.category ==="buildUnit") {
+                    var flag = false;
+                    myDiagram.nodes.each(function(node2) {
+                        if(node2.part.data.buildUnit === node.part.data.key && !node2.visible) {
+                            flag = true;
+                            return false;
+                        }  
+                    })
+                    node.visible = !flag;
+                    return false;
+                }
                 node.part.move(go.Point.parse(parsedData.loc), true);
                 if(node.part.data.category === "factory") {
                     node.part.data.mode_configuration = parsedData.mode_configuration;
@@ -5021,15 +5026,20 @@
                             }
                             return;   
                         }
+                        if(node2.part.data.category === "factory") {
+                            return
+                        }
                         node2.part.data.mode = parsedString.nodeDataArray.find(function(nodeData) {
                             if(nodeData.key === node2.key) return nodeData;
                         }).mode
-                        if(node2.part.data.mode !== node.part.data.mode_configuration.mode_list[0].name) {
+                        if(node2.part.data.mode !== node.part.data.mode_configuration.initial_mode) {
                             node2.visible = false;
                             node2.part.memberParts.each(function(member) {
                                 member.visible = false;    
                                 myDiagram.links.each(function(link) {
                                     if(link.part.data.to === member.key)
+                                        link.visible = false;
+                                    else if(link.part.data.from === member.key)
                                         link.visible = false;
                                 })
                             })
@@ -5041,10 +5051,13 @@
                                 myDiagram.links.each(function(link) {
                                     if(link.part.data.to === member.key)
                                         link.visible = true;
+                                    else if(link.part.data.from === member.key)
+                                        link.visible = true;
                                 })
                             })
                         }
-                    })    
+                    })
+                        
                 }
             })
             myDiagram.model.nodeDataArray.forEach(function(node){
